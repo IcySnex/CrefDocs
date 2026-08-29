@@ -15,5 +15,9 @@ public interface IRepository<T>
     /// <returns>The matching value.</returns>
     /// <exception cref="KeyNotFoundException">No value has the supplied identifier.</exception>
     Result<T> Get(string id);
-}
 
+    /// <summary>Reads a value asynchronously.</summary>
+    /// <param name="id">The value identifier.</param>
+    /// <returns>The matching value once the operation completes.</returns>
+    Task<Result<T>> GetAsync(string id);
+}

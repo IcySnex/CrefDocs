@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 
 namespace CrefDocs.Capture;
@@ -112,6 +113,11 @@ internal static class SymbolFormatter
     public static string FormatReference(ITypeSymbol symbol)
     {
         return symbol.ToDisplayString(ReferenceFormat);
+    }
+
+    public static ImmutableArray<SymbolDisplayPart> FormatReferenceParts(ITypeSymbol symbol)
+    {
+        return symbol.ToDisplayParts(ReferenceFormat);
     }
 
     public static string? FormatConstraints(ITypeParameterSymbol parameter)

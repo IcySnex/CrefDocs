@@ -6,7 +6,7 @@ internal sealed record ApiSnapshot(
     ApiPackage Package,
     IReadOnlyList<ApiType> Types)
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 }
 
 internal sealed record ApiPackage(
@@ -50,8 +50,7 @@ internal sealed record ApiMember(
     IReadOnlyList<ApiTypeParameter> TypeParameters,
     IReadOnlyList<ApiParameter> Parameters,
     IReadOnlyList<ApiException> Exceptions,
-    bool IsPrimaryConstructor = false,
-    bool? IsReadOnly = null);
+    bool IsPrimaryConstructor = false);
 
 internal enum ApiMemberKind
 {
@@ -67,6 +66,12 @@ internal enum ApiMemberKind
 
 internal sealed record ApiReference(
     string DisplayName,
+    string? DocumentationId,
+    IReadOnlyList<ApiReferenceComponent> Components);
+
+internal sealed record ApiReferenceComponent(
+    int Start,
+    int Length,
     string? DocumentationId);
 
 internal sealed record ApiTypeParameter(

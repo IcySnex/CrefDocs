@@ -15,6 +15,9 @@ public sealed partial class Repository<T> : IRepository<T>
     /// <remarks>The lookup is performed synchronously.</remarks>
     public Result<T> Get(string id) => throw new KeyNotFoundException(id);
 
+    /// <inheritdoc/>
+    public Task<Result<T>> GetAsync(string id) => throw new KeyNotFoundException(id);
+
     /// <summary>Returns the supplied value.</summary>
     public static implicit operator Repository<T>(T value) => new();
 

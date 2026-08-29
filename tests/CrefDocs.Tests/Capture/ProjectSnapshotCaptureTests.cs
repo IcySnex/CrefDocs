@@ -21,6 +21,14 @@ public sealed class ProjectSnapshotCaptureTests
         Assert.Equal("The value identifier.", Assert.Single(get.Parameters).Description);
         Assert.Equal("The matching value.", get.Documentation.Returns);
         Assert.Equal("No value has the supplied identifier.", Assert.Single(get.Exceptions).Description);
+
+        var getAsync = Assert.Single(repository.Members, member => member.Name == "GetAsync");
+        Assert.Equal("Task<Result<T>>", getAsync.Type?.DisplayName);
+        Assert.Collection(
+            getAsync.Type!.Components,
+            component => Assert.Equal("T:System.Threading.Tasks.Task`1", component.DocumentationId),
+            component => Assert.Equal("T:CrefDocs.Fixture.Models.Result`1", component.DocumentationId),
+            component => Assert.Null(component.DocumentationId));
     }
 
     [Fact]
@@ -35,12 +43,10 @@ public sealed class ProjectSnapshotCaptureTests
         var repository = Assert.Single(snapshot.Types, type => type.Id == "T:CrefDocs.Fixture.Services.Repository`1");
         Assert.Contains(repository.Members, member => member.Kind == ApiMemberKind.Event);
         Assert.Contains(repository.Members, member => member.Kind == ApiMemberKind.Operator);
-        var name = Assert.Single(repository.Members, member => member.Name == "Name" && member.Kind == ApiMemberKind.Property);
-        Assert.False(name.IsReadOnly);
+        Assert.Contains(repository.Members, member => member.Name == "Name" && member.Kind == ApiMemberKind.Property);
 
         var result = Assert.Single(snapshot.Types, type => type.Id == "T:CrefDocs.Fixture.Models.Result`1");
         Assert.True(Assert.Single(result.Members, member => member.Kind == ApiMemberKind.Constructor).IsPrimaryConstructor);
-        Assert.True(Assert.Single(repository.Members, member => member.Name == "ReadCount").IsReadOnly);
     }
 
     [Fact]

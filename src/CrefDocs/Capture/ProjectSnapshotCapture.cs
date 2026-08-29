@@ -168,8 +168,7 @@ internal sealed class ProjectSnapshotCapture
             documentation.Exceptions.Select(exception => new ApiException(
                 CreateReference(exception.DocumentationId),
                 exception.Description)).ToArray(),
-            isPrimaryConstructor,
-            symbol is IPropertySymbol propertySymbol ? propertySymbol.SetMethod is null : null);
+            isPrimaryConstructor);
     }
 
     private static IReadOnlyList<ApiTypeParameter> CaptureTypeParameters(
@@ -365,16 +364,31 @@ internal sealed class ProjectSnapshotCapture
             _ => symbol,
         };
 
+        var displayName = SymbolFormatter.FormatReference(symbol);
+        var offset = 0;
+        var components = SymbolFormatter.FormatReferenceParts(symbol)
+            .Select(part =>
+            {
+                var start = offset;
+                offset += part.ToString().Length;
+                return part.Symbol is ITypeSymbol type
+                    ? new ApiReferenceComponent(start, part.ToString().Length, GetTypeDocumentationId(type))
+                    : null;
+            })
+            .OfType<ApiReferenceComponent>()
+            .ToArray();
+
         return new ApiReference(
-            SymbolFormatter.FormatReference(symbol),
-            identity.GetDocumentationCommentId());
+            displayName,
+            identity.GetDocumentationCommentId(),
+            components);
     }
 
     private static ApiReference CreateReference(string? documentationId)
     {
         if (string.IsNullOrWhiteSpace(documentationId))
         {
-            return new ApiReference("unknown", null);
+            return new ApiReference("unknown", null, []);
         }
 
         var separator = documentationId.IndexOf(':');
@@ -385,7 +399,19 @@ internal sealed class ProjectSnapshotCapture
             displayName = displayName[(lastDot + 1)..];
         }
 
-        return new ApiReference(displayName.Replace('`', '<'), documentationId);
+        return new ApiReference(displayName.Replace('`', '<'), documentationId, []);
+    }
+
+    private static string? GetTypeDocumentationId(ITypeSymbol symbol)
+    {
+        return symbol switch
+        {
+            INamedTypeSymbol named => named.OriginalDefinition.GetDocumentationCommentId(),
+            IArrayTypeSymbol array => GetTypeDocumentationId(array.ElementType),
+            IPointerTypeSymbol pointer => GetTypeDocumentationId(pointer.PointedAtType),
+            ITypeParameterSymbol => null,
+            _ => symbol.GetDocumentationCommentId(),
+        };
     }
 
     private static string GetRequiredDocumentationId(ISymbol symbol)

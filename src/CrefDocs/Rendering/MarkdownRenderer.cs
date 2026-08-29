@@ -166,7 +166,8 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine().Append("## ").AppendLine(heading);
+        EnsureBlankLine(builder);
+        builder.Append("## ").AppendLine(heading);
         var anchors = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var member in members)
         {
@@ -175,26 +176,26 @@ internal sealed class MarkdownRenderer
             anchors[baseAnchor] = occurrence;
             var anchor = occurrence == 1 ? baseAnchor : $"{baseAnchor}-{occurrence}";
 
-            builder.AppendLine().Append("<a id=\"").Append(anchor).AppendLine("\"></a>");
+            EnsureBlankLine(builder);
+            builder.Append("<a id=\"").Append(anchor).AppendLine("\"></a>");
             builder.Append("### ").AppendLine(EscapeMarkdownText(member.Name)).AppendLine();
             WriteIfPresent(builder, documentation.Render(member.Documentation.Summary));
             WriteRemarks(builder, documentation.Render(member.Documentation.Remarks));
-            if (member.Type is not null)
+            if (member.Type is not null && member.Kind is not ApiMemberKind.Method and not ApiMemberKind.Operator)
             {
-                builder.Append("- **Type:** ").AppendLine(RenderReference(member.Type, routes));
+                EnsureBlankLine(builder);
+                builder.Append("**Type:** ").AppendLine(RenderReference(member.Type, routes));
             }
 
-            if (member.IsReadOnly is not null)
-            {
-                builder.Append("- **Is Read Only:** `")
-                    .Append(member.IsReadOnly.Value ? "True" : "False")
-                    .AppendLine("`");
-            }
-
-            builder.AppendLine().AppendLine("```csharp").AppendLine(FormatMemberDeclaration(member.Declaration)).AppendLine("```");
+            EnsureBlankLine(builder);
+            builder.AppendLine("```csharp").AppendLine(FormatMemberDeclaration(member.Declaration)).AppendLine("```");
             WriteParameters(builder, member.Parameters, routes, documentation);
             WriteTypeParameters(builder, member.TypeParameters, documentation);
-            WriteIfPresent(builder, documentation.Render(member.Documentation.Returns), "**Returns:** ");
+            if (member.Kind is ApiMemberKind.Method or ApiMemberKind.Operator)
+            {
+                WriteReturns(builder, member, routes, documentation);
+            }
+
             WriteExceptions(builder, member.Exceptions, routes, documentation);
         }
     }
@@ -211,12 +212,14 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine().AppendLine("## Constructors");
+        EnsureBlankLine(builder);
+        builder.AppendLine("## Constructors");
         var anchor = Slug.Create(type.Name);
         for (var index = 0; index < constructors.Count; index++)
         {
             var constructor = constructors[index];
-            builder.AppendLine().Append("<a id=\"").Append(anchor);
+            EnsureBlankLine(builder);
+            builder.Append("<a id=\"").Append(anchor);
             if (index > 0)
             {
                 builder.Append('-').Append(index + 1);
@@ -225,7 +228,7 @@ internal sealed class MarkdownRenderer
             builder.AppendLine("\"></a>");
             if (constructor.IsPrimaryConstructor)
             {
-                var reference = RenderReference(new ApiReference(type.Name, type.Id), routes);
+                var reference = RenderReference(new ApiReference(type.Name, type.Id, []), routes);
                 WriteIfPresent(builder, $"Initializes a new instance of the {reference} {GetTypeNoun(type.Kind)}.");
             }
             else
@@ -234,6 +237,7 @@ internal sealed class MarkdownRenderer
                 WriteRemarks(builder, documentation.Render(constructor.Documentation.Remarks));
             }
 
+            EnsureBlankLine(builder);
             builder.AppendLine("```csharp")
                 .AppendLine(FormatMemberDeclaration(constructor.Declaration))
                 .AppendLine("```");
@@ -254,7 +258,8 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine().AppendLine("| Parameter | Summary |")
+        EnsureBlankLine(builder);
+        builder.AppendLine("| Parameter | Summary |")
             .AppendLine("| --------- | ------- |");
         foreach (var parameter in parameters)
         {
@@ -275,7 +280,8 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine().AppendLine("| Type parameter | Summary |")
+        EnsureBlankLine(builder);
+        builder.AppendLine("| Type parameter | Summary |")
             .AppendLine("| -------------- | ------- |");
         foreach (var parameter in parameters)
         {
@@ -301,7 +307,8 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine().AppendLine("**Exceptions**").AppendLine();
+        EnsureBlankLine(builder);
+        builder.AppendLine("**Exceptions**").AppendLine();
         foreach (var exception in exceptions)
         {
             builder.Append("- ").Append(RenderReference(exception.Type, routes));
@@ -315,6 +322,35 @@ internal sealed class MarkdownRenderer
         }
     }
 
+    private static void WriteReturns(
+        StringBuilder builder,
+        ApiMember member,
+        RouteMap routes,
+        DocumentationMarkdown documentation)
+    {
+        var description = documentation.Render(member.Documentation.Returns);
+        var hasReturnType = member.Type is not null &&
+            !string.Equals(member.Type.DocumentationId, "T:System.Void", StringComparison.Ordinal);
+        if (!hasReturnType && string.IsNullOrWhiteSpace(description))
+        {
+            return;
+        }
+
+        EnsureBlankLine(builder);
+        builder.Append("**Returns:**");
+        if (hasReturnType)
+        {
+            builder.Append(' ').Append(RenderReference(member.Type!, routes));
+        }
+
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            builder.Append(hasReturnType ? ": " : " ").Append(description);
+        }
+
+        builder.AppendLine().AppendLine();
+    }
+
     private static void WriteEnumValues(
         StringBuilder builder,
         IReadOnlyList<ApiMember>? values,
@@ -325,7 +361,8 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine().AppendLine("## Values").AppendLine();
+        EnsureBlankLine(builder);
+        builder.AppendLine("## Values").AppendLine();
         builder.AppendLine("| Name | Summary |")
             .AppendLine("| ---- | ------- |");
         foreach (var value in values)
@@ -337,15 +374,43 @@ internal sealed class MarkdownRenderer
 
     private static string RenderReference(ApiReference reference, RouteMap routes)
     {
-        var display = $"`{reference.DisplayName}`";
-        if (routes.TryGetRoute(reference.DocumentationId, out var internalRoute))
+        if (reference.Components.Count == 0)
+        {
+            return RenderReferenceComponent(reference.DisplayName, reference.DocumentationId, routes);
+        }
+
+        var builder = new StringBuilder();
+        var offset = 0;
+        foreach (var component in reference.Components.OrderBy(component => component.Start))
+        {
+            if (component.Start < offset || component.Start + component.Length > reference.DisplayName.Length)
+            {
+                continue;
+            }
+
+            builder.Append(EscapeReferenceSyntax(reference.DisplayName[offset..component.Start]));
+            builder.Append(RenderReferenceComponent(
+                reference.DisplayName.Substring(component.Start, component.Length),
+                component.DocumentationId,
+                routes));
+            offset = component.Start + component.Length;
+        }
+
+        builder.Append(EscapeReferenceSyntax(reference.DisplayName[offset..]));
+        return builder.ToString();
+    }
+
+    private static string RenderReferenceComponent(string text, string? documentationId, RouteMap routes)
+    {
+        var display = $"`{text}`";
+        if (routes.TryGetRoute(documentationId, out var internalRoute))
         {
             return $"[{display}]({internalRoute})";
         }
 
-        if (reference.DocumentationId?.StartsWith("T:", StringComparison.Ordinal) == true)
+        if (documentationId?.StartsWith("T:", StringComparison.Ordinal) == true)
         {
-            var externalName = reference.DocumentationId[2..]
+            var externalName = documentationId[2..]
                 .ToLowerInvariant()
                 .Replace('`', '-')
                 .Replace('+', '.');
@@ -353,6 +418,11 @@ internal sealed class MarkdownRenderer
         }
 
         return display;
+    }
+
+    private static string EscapeReferenceSyntax(string value)
+    {
+        return EscapeMarkdownText(value);
     }
 
     private static IReadOnlyList<ApiMember> Combine(
@@ -546,10 +616,9 @@ internal sealed class MarkdownRenderer
         output.Add(line[..(open + 1)]);
         for (var index = 0; index < parameters.Count; index++)
         {
-            output.Add($"{indentation}  {parameters[index]}{(index < parameters.Count - 1 ? "," : string.Empty)}");
+            var suffix = index < parameters.Count - 1 ? "," : line[close..];
+            output.Add($"{indentation}  {parameters[index]}{suffix}");
         }
-
-        output.Add(indentation + line[close..]);
     }
 
     private static int FindMatchingParenthesis(string value, int open)
