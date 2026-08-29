@@ -35,7 +35,12 @@ public sealed class ProjectSnapshotCaptureTests
         var repository = Assert.Single(snapshot.Types, type => type.Id == "T:CrefDocs.Fixture.Services.Repository`1");
         Assert.Contains(repository.Members, member => member.Kind == ApiMemberKind.Event);
         Assert.Contains(repository.Members, member => member.Kind == ApiMemberKind.Operator);
-        Assert.Contains(repository.Members, member => member.Name == "Name" && member.Kind == ApiMemberKind.Property);
+        var name = Assert.Single(repository.Members, member => member.Name == "Name" && member.Kind == ApiMemberKind.Property);
+        Assert.False(name.IsReadOnly);
+
+        var result = Assert.Single(snapshot.Types, type => type.Id == "T:CrefDocs.Fixture.Models.Result`1");
+        Assert.True(Assert.Single(result.Members, member => member.Kind == ApiMemberKind.Constructor).IsPrimaryConstructor);
+        Assert.True(Assert.Single(repository.Members, member => member.Name == "ReadCount").IsReadOnly);
     }
 
     [Fact]

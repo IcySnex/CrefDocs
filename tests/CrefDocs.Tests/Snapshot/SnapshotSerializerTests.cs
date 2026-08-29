@@ -14,7 +14,7 @@ public sealed class SnapshotSerializerTests
         Assert.Equal(
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "toolVersion": "0.1.0",
               "package": {
                 "id": "Example",
@@ -56,7 +56,7 @@ public sealed class SnapshotSerializerTests
     public void DeserializeRejectsUnknownSchemaVersion()
     {
         var json = SnapshotSerializer.Serialize(CreateSnapshot())
-            .Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99", StringComparison.Ordinal);
+            .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 99", StringComparison.Ordinal);
 
         var exception = Assert.Throws<InvalidDataException>(() => SnapshotSerializer.Deserialize(json));
 

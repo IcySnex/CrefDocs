@@ -99,6 +99,7 @@ internal sealed class ProjectSnapshotCapture
             .Concat(extensionMembers)
             .OrderBy(member => member.Kind)
             .ThenBy(member => member.Name, StringComparer.Ordinal)
+            .ThenBy(member => member.Parameters.Count)
             .ThenBy(member => member.Id, StringComparer.Ordinal)
             .ToArray();
 
@@ -113,7 +114,10 @@ internal sealed class ProjectSnapshotCapture
             GetSourcePath(symbol, sourceRoot),
             symbol.ContainingType?.GetDocumentationCommentId(),
             GetBaseType(symbol),
-            symbol.Interfaces.Select(CreateReference).ToArray(),
+            symbol.AllInterfaces
+                .OrderBy(@interface => @interface.GetDocumentationCommentId(), StringComparer.Ordinal)
+                .Select(CreateReference)
+                .ToArray(),
             documentation.Documentation,
             CaptureTypeParameters(symbol.TypeParameters, documentation),
             members);
@@ -125,6 +129,7 @@ internal sealed class ProjectSnapshotCapture
         CancellationToken cancellationToken)
     {
         var documentation = _documentation.Read(symbol, cancellationToken);
+        var isPrimaryConstructor = IsPrimaryConstructor(symbol);
         var extensionDocumentation = extension is null
             ? DocumentationResult.Empty
             : _documentation.Read(extension, cancellationToken);
@@ -162,7 +167,9 @@ internal sealed class ProjectSnapshotCapture
                     extensionDocumentation.Parameters.GetValueOrDefault(parameter.Name))).ToArray(),
             documentation.Exceptions.Select(exception => new ApiException(
                 CreateReference(exception.DocumentationId),
-                exception.Description)).ToArray());
+                exception.Description)).ToArray(),
+            isPrimaryConstructor,
+            symbol is IPropertySymbol propertySymbol ? propertySymbol.SetMethod is null : null);
     }
 
     private static IReadOnlyList<ApiTypeParameter> CaptureTypeParameters(
@@ -252,6 +259,20 @@ internal sealed class ProjectSnapshotCapture
             IEventSymbol @event => @event.ExplicitInterfaceImplementations.Length > 0,
             _ => false,
         };
+    }
+
+    private static bool IsPrimaryConstructor(ISymbol symbol)
+    {
+        if (symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor })
+        {
+            return false;
+        }
+
+        return symbol.DeclaringSyntaxReferences.Any(reference =>
+            reference.GetSyntax() is Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax
+            {
+                ParameterList: not null,
+            });
     }
 
     private static bool IsPublicApiAccessibility(Accessibility accessibility)
