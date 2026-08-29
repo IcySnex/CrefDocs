@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -107,28 +108,46 @@ internal sealed class MarkdownRenderer
                 .Where(candidate => IsDirectChild(directory, candidate))
                 .OrderBy(candidate => candidate, StringComparer.Ordinal)
                 .ToArray();
-            var title = string.IsNullOrEmpty(directory)
-                ? snapshot.Package.Id
-                : GetDirectoryDisplayName(snapshot, directory, options.Structure);
+            var indexKey = GetIndexKey(snapshot, directory, options.Structure);
+            var title = options.Structure == StructureMode.Namespace && indexKey is not null
+                ? indexKey
+                : string.IsNullOrEmpty(directory)
+                    ? snapshot.Package.Id
+                    : GetDirectoryDisplayName(snapshot, directory, options.Structure);
+            var description = GetIndexDescription(snapshot, indexKey, options.Structure);
             var builder = new StringBuilder();
-            WriteFrontmatter(builder, title, $"API reference for {title}.");
+            WriteFrontmatter(builder, title, description ?? $"API reference for {title}.");
             builder.Append("# ").AppendLine(title).AppendLine();
-            if (string.IsNullOrEmpty(directory))
+            if (description is not null)
+            {
+                WriteIfPresent(builder, description);
+            }
+            else if (string.IsNullOrEmpty(directory))
             {
                 builder.Append("API reference for ").Append(snapshot.Package.Id).Append(' ')
                     .Append(snapshot.Package.Version).AppendLine(".").AppendLine();
             }
 
+            WriteIndexIdentity(builder, snapshot, directory, indexKey, options);
+
             if (children.Length > 0)
             {
-                builder.AppendLine("## Sections").AppendLine();
-                builder.AppendLine("| Section |")
-                    .AppendLine("| ------- |");
+                var childKind = options.Structure == StructureMode.Namespace ? "Namespace" : "Section";
+                EnsureBlankLine(builder);
+                builder.Append("## ").Append(childKind).AppendLine("s").AppendLine();
+                builder.Append("| ").Append(childKind).AppendLine(" | Summary |")
+                    .AppendLine("| --------- | ------- |");
                 foreach (var child in children)
                 {
                     var route = CombineRoute(options.BaseRoute, child);
-                    builder.Append("| [").Append(GetDirectoryDisplayName(snapshot, child, options.Structure)).Append("](")
-                        .Append(route).AppendLine(") |");
+                    var childKey = GetIndexKey(snapshot, child, options.Structure);
+                    var childTitle = options.Structure == StructureMode.Namespace && childKey is not null
+                        ? childKey
+                        : GetDirectoryDisplayName(snapshot, child, options.Structure);
+                    var childDescription = GetIndexDescription(snapshot, childKey, options.Structure) ?? string.Empty;
+                    builder.Append("| [").Append(childTitle).Append("](")
+                        .Append(route).Append(") | ")
+                        .Append(EscapeTable(childDescription)).AppendLine(" |");
                 }
 
                 builder.AppendLine();
@@ -136,6 +155,7 @@ internal sealed class MarkdownRenderer
 
             foreach (var group in directTypes.GroupBy(type => GetTypeSection(type.Kind)))
             {
+                EnsureBlankLine(builder);
                 builder.Append("## ").AppendLine(group.Key).AppendLine();
                 builder.Append("| ").Append(GetTypeColumnLabel(group.Key)).AppendLine(" | Summary |")
                     .AppendLine("| ---- | ------- |");
@@ -181,6 +201,11 @@ internal sealed class MarkdownRenderer
             builder.Append("### ").AppendLine(EscapeMarkdownText(member.Name)).AppendLine();
             WriteIfPresent(builder, documentation.Render(member.Documentation.Summary));
             WriteRemarks(builder, documentation.Render(member.Documentation.Remarks));
+            if (member.Kind is ApiMemberKind.Method or ApiMemberKind.Operator)
+            {
+                WriteReturns(builder, member, routes, documentation);
+            }
+
             if (member.Type is not null && member.Kind is not ApiMemberKind.Method and not ApiMemberKind.Operator)
             {
                 EnsureBlankLine(builder);
@@ -191,11 +216,6 @@ internal sealed class MarkdownRenderer
             builder.AppendLine("```csharp").AppendLine(FormatMemberDeclaration(member.Declaration)).AppendLine("```");
             WriteParameters(builder, member.Parameters, routes, documentation);
             WriteTypeParameters(builder, member.TypeParameters, documentation);
-            if (member.Kind is ApiMemberKind.Method or ApiMemberKind.Operator)
-            {
-                WriteReturns(builder, member, routes, documentation);
-            }
-
             WriteExceptions(builder, member.Exceptions, routes, documentation);
         }
     }
@@ -374,12 +394,13 @@ internal sealed class MarkdownRenderer
 
     private static string RenderReference(ApiReference reference, RouteMap routes)
     {
+        var builder = new StringBuilder("<code>");
         if (reference.Components.Count == 0)
         {
-            return RenderReferenceComponent(reference.DisplayName, reference.DocumentationId, routes);
+            builder.Append(RenderReferenceComponent(reference.DisplayName, reference.DocumentationId, routes));
+            return builder.Append("</code>").ToString();
         }
 
-        var builder = new StringBuilder();
         var offset = 0;
         foreach (var component in reference.Components.OrderBy(component => component.Start))
         {
@@ -388,7 +409,7 @@ internal sealed class MarkdownRenderer
                 continue;
             }
 
-            builder.Append(EscapeReferenceSyntax(reference.DisplayName[offset..component.Start]));
+            builder.Append(WebUtility.HtmlEncode(reference.DisplayName[offset..component.Start]));
             builder.Append(RenderReferenceComponent(
                 reference.DisplayName.Substring(component.Start, component.Length),
                 component.DocumentationId,
@@ -396,16 +417,15 @@ internal sealed class MarkdownRenderer
             offset = component.Start + component.Length;
         }
 
-        builder.Append(EscapeReferenceSyntax(reference.DisplayName[offset..]));
-        return builder.ToString();
+        builder.Append(WebUtility.HtmlEncode(reference.DisplayName[offset..]));
+        return builder.Append("</code>").ToString();
     }
 
     private static string RenderReferenceComponent(string text, string? documentationId, RouteMap routes)
     {
-        var display = $"`{text}`";
         if (routes.TryGetRoute(documentationId, out var internalRoute))
         {
-            return $"[{display}]({internalRoute})";
+            return $"<a href=\"{WebUtility.HtmlEncode(internalRoute)}\">{WebUtility.HtmlEncode(text)}</a>";
         }
 
         if (documentationId?.StartsWith("T:", StringComparison.Ordinal) == true)
@@ -414,15 +434,11 @@ internal sealed class MarkdownRenderer
                 .ToLowerInvariant()
                 .Replace('`', '-')
                 .Replace('+', '.');
-            return $"[{display}](https://learn.microsoft.com/dotnet/api/{externalName})";
+            var route = $"https://learn.microsoft.com/dotnet/api/{externalName}";
+            return $"<a href=\"{WebUtility.HtmlEncode(route)}\">{WebUtility.HtmlEncode(text)}</a>";
         }
 
-        return display;
-    }
-
-    private static string EscapeReferenceSyntax(string value)
-    {
-        return EscapeMarkdownText(value);
+        return WebUtility.HtmlEncode(text);
     }
 
     private static IReadOnlyList<ApiMember> Combine(
@@ -473,12 +489,7 @@ internal sealed class MarkdownRenderer
         StructureMode structure)
     {
         var depth = directory.Count(character => character == '/');
-        var type = snapshot.Types
-            .Where(candidate => RouteMap.GetDirectory(candidate, structure) == directory ||
-                RouteMap.GetDirectory(candidate, structure).StartsWith(directory + '/', StringComparison.OrdinalIgnoreCase))
-            .OrderBy(candidate => candidate.SourcePath, StringComparer.Ordinal)
-            .ThenBy(candidate => candidate.Id, StringComparer.Ordinal)
-            .FirstOrDefault();
+        var type = FindRepresentativeType(snapshot, directory, structure);
         if (type is null)
         {
             return HumanizeSegment(directory.Split('/')[^1]);
@@ -494,6 +505,114 @@ internal sealed class MarkdownRenderer
         return depth < segments.Length
             ? segments[depth]
             : HumanizeSegment(directory.Split('/')[^1]);
+    }
+
+    private static string? GetIndexKey(
+        ApiSnapshot snapshot,
+        string directory,
+        StructureMode structure)
+    {
+        if (structure == StructureMode.Flat)
+        {
+            return string.Empty;
+        }
+
+        if (string.IsNullOrEmpty(directory))
+        {
+            return structure == StructureMode.Source ? string.Empty : null;
+        }
+
+        var type = FindRepresentativeType(snapshot, directory, structure);
+        if (type is null)
+        {
+            return null;
+        }
+
+        var count = directory.Count(character => character == '/') + 1;
+        var segments = structure switch
+        {
+            StructureMode.Namespace => type.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries),
+            StructureMode.Source => (Path.GetDirectoryName(type.SourcePath?.Replace('/', Path.DirectorySeparatorChar)) ?? string.Empty)
+                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries),
+            _ => [],
+        };
+        var separator = structure == StructureMode.Namespace ? "." : "/";
+        return string.Join(separator, segments.Take(count));
+    }
+
+    private static string? GetIndexDescription(
+        ApiSnapshot snapshot,
+        string? key,
+        StructureMode structure)
+    {
+        if (key is null)
+        {
+            return null;
+        }
+
+        var descriptions = structure == StructureMode.Namespace
+            ? snapshot.IndexMetadata.Namespaces
+            : snapshot.IndexMetadata.Sections;
+        return descriptions.FirstOrDefault(entry =>
+            string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))?.Description;
+    }
+
+    private static void WriteIndexIdentity(
+        StringBuilder builder,
+        ApiSnapshot snapshot,
+        string directory,
+        string? indexKey,
+        RenderOptions options)
+    {
+        if (options.Structure == StructureMode.Namespace && indexKey is not null)
+        {
+            EnsureBlankLine(builder);
+            builder.AppendLine("- **Type:** Namespace");
+            var parent = GetParentDirectory(directory);
+            if (!string.IsNullOrEmpty(parent))
+            {
+                var parentKey = GetIndexKey(snapshot, parent, options.Structure)!;
+                builder.Append("- **Namespace:** [").Append(parentKey).Append("](")
+                    .Append(CombineRoute(options.BaseRoute, parent)).AppendLine(")");
+            }
+
+            return;
+        }
+
+        if (options.Structure == StructureMode.Source)
+        {
+            EnsureBlankLine(builder);
+            builder.AppendLine("- **Type:** Section");
+            if (!string.IsNullOrEmpty(directory))
+            {
+                var parent = GetParentDirectory(directory);
+                var parentTitle = string.IsNullOrEmpty(parent)
+                    ? snapshot.Package.Id
+                    : GetDirectoryDisplayName(snapshot, parent, options.Structure);
+                builder.Append("- **Section:** [")
+                    .Append(parentTitle).Append("](")
+                    .Append(CombineRoute(options.BaseRoute, parent)).AppendLine(")");
+            }
+        }
+    }
+
+    private static ApiType? FindRepresentativeType(
+        ApiSnapshot snapshot,
+        string directory,
+        StructureMode structure)
+    {
+        return snapshot.Types
+            .Where(candidate => RouteMap.GetDirectory(candidate, structure) == directory ||
+                RouteMap.GetDirectory(candidate, structure).StartsWith(directory + '/', StringComparison.OrdinalIgnoreCase))
+            .OrderBy(candidate => candidate.SourcePath, StringComparer.Ordinal)
+            .ThenBy(candidate => candidate.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    private static string GetParentDirectory(string directory)
+    {
+        var separator = directory.LastIndexOf('/');
+        return separator < 0 ? string.Empty : directory[..separator];
     }
 
     private static string GetTypeLabel(ApiTypeKind kind) => kind switch

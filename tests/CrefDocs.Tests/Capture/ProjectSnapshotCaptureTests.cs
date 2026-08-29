@@ -15,6 +15,12 @@ public sealed class ProjectSnapshotCaptureTests
         Assert.Equal("Services/Repository.cs", repository.SourcePath);
         Assert.Equal("An in-memory <see cref=\"T:CrefDocs.Fixture.Services.IRepository`1\" />.", repository.Documentation.Summary);
         Assert.Equal("class", Assert.Single(repository.TypeParameters).Constraints);
+        Assert.Contains(
+            snapshot.IndexMetadata.Namespaces,
+            entry => entry.Key == "CrefDocs.Fixture.Services" && entry.Description == "Repository service fixtures.");
+        Assert.Contains(
+            snapshot.IndexMetadata.Sections,
+            entry => entry.Key == "Services" && entry.Description == "Repository service fixtures.");
 
         var get = Assert.Single(repository.Members, member => member.Name == "Get");
         Assert.Equal("Reads the value identified by <paramref name=\"id\" />.", get.Documentation.Summary);
@@ -71,7 +77,8 @@ public sealed class ProjectSnapshotCaptureTests
             "net10.0",
             "CrefDocs.Fixture",
             "1.0.0",
-            Path.Combine(repositoryRoot, "tests/CrefDocs.Fixture")));
+            Path.Combine(repositoryRoot, "tests/CrefDocs.Fixture"),
+            MetadataPath: Path.Combine(repositoryRoot, "tests/CrefDocs.Fixture/api-reference.json")));
     }
 
     private static string FindRepositoryRoot()

@@ -14,13 +14,17 @@ public sealed class SnapshotSerializerTests
         Assert.Equal(
             """
             {
-              "schemaVersion": 3,
+              "schemaVersion": 1,
               "toolVersion": "0.1.0",
               "package": {
                 "id": "Example",
                 "version": "1.2.3",
                 "assemblyName": "Example",
                 "targetFramework": "net10.0"
+              },
+              "indexMetadata": {
+                "namespaces": [],
+                "sections": []
               },
               "types": [
                 {
@@ -63,7 +67,7 @@ public sealed class SnapshotSerializerTests
     public void DeserializeRejectsUnknownSchemaVersion()
     {
         var json = SnapshotSerializer.Serialize(CreateSnapshot())
-            .Replace("\"schemaVersion\": 3", "\"schemaVersion\": 99", StringComparison.Ordinal);
+            .Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99", StringComparison.Ordinal);
 
         var exception = Assert.Throws<InvalidDataException>(() => SnapshotSerializer.Deserialize(json));
 
@@ -86,6 +90,7 @@ public sealed class SnapshotSerializerTests
             ApiSnapshot.CurrentSchemaVersion,
             "0.1.0",
             new ApiPackage("Example", "1.2.3", "Example", "net10.0"),
+            ApiIndexMetadata.Empty,
             [
                 new ApiType(
                     "T:Example.Widget",

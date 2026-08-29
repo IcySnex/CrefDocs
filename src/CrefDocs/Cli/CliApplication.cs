@@ -54,7 +54,7 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
     private async Task CaptureAsync(CliArguments args, CancellationToken cancellationToken)
     {
         args.EnsureOnly(
-            "project", "framework", "package", "version", "source-root", "configuration", "output");
+            "project", "framework", "package", "version", "source-root", "configuration", "metadata", "output");
         var snapshot = await CaptureProjectAsync(args, cancellationToken);
         var path = args.Required("output");
         await SnapshotSerializer.WriteAsync(snapshot, path, cancellationToken);
@@ -72,7 +72,7 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
     {
         args.EnsureOnly(
             "project", "framework", "package", "version", "source-root", "configuration",
-            "output", "snapshot-output", "structure", "base-route", "no-root-index");
+            "metadata", "output", "snapshot-output", "structure", "base-route", "no-root-index");
         var snapshot = await CaptureProjectAsync(args, cancellationToken);
         var snapshotOutput = args.Optional("snapshot-output");
         if (snapshotOutput is not null)
@@ -94,7 +94,8 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
                 args.Required("package"),
                 args.Required("version"),
                 args.Optional("source-root"),
-                args.Optional("configuration", "Release")),
+                args.Optional("configuration", "Release"),
+                args.Optional("metadata")),
             cancellationToken);
     }
 
@@ -147,6 +148,7 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
           --version <version>     Released package version stored in the snapshot.
           --source-root <path>    Root used for source-relative paths. Defaults to the project directory.
           --configuration <name>  Build configuration. Defaults to Release.
+          --metadata <path>       Optional API index descriptions to embed in the snapshot.
           --output <path>         Snapshot file for capture, Markdown directory for generate.
 
         Render options:
@@ -159,4 +161,3 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
         Generate additionally accepts --snapshot-output <path>.
         """;
 }
-

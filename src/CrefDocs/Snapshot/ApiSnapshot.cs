@@ -4,10 +4,22 @@ internal sealed record ApiSnapshot(
     int SchemaVersion,
     string ToolVersion,
     ApiPackage Package,
+    ApiIndexMetadata IndexMetadata,
     IReadOnlyList<ApiType> Types)
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 1;
 }
+
+internal sealed record ApiIndexMetadata(
+    IReadOnlyList<ApiIndexDescription> Namespaces,
+    IReadOnlyList<ApiIndexDescription> Sections)
+{
+    public static ApiIndexMetadata Empty { get; } = new([], []);
+}
+
+internal sealed record ApiIndexDescription(
+    string Key,
+    string Description);
 
 internal sealed record ApiPackage(
     string Id,

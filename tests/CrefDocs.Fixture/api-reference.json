@@ -1,0 +1,14 @@
+{
+  "namespaces": {
+    "CrefDocs.Fixture": "Public API fixtures used to verify CrefDocs.",
+    "CrefDocs.Fixture.Collections": "Generic collection fixtures.",
+    "CrefDocs.Fixture.Models": "Result and model fixtures.",
+    "CrefDocs.Fixture.Services": "Repository service fixtures."
+  },
+  "sections": {
+    "": "Public API fixtures organized by source folder.",
+    "Collections": "Generic collection fixtures.",
+    "Models": "Result and model fixtures.",
+    "Services": "Repository service fixtures."
+  }
+}

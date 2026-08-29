@@ -21,6 +21,7 @@ internal sealed class ProjectSnapshotCapture
             throw new FileNotFoundException("The project file does not exist.", projectPath);
         }
 
+        var indexMetadata = await IndexMetadataReader.ReadAsync(options.MetadataPath, cancellationToken);
         EnsureMSBuildRegistered();
 
         var workspaceDiagnostics = new List<string>();
@@ -68,6 +69,7 @@ internal sealed class ProjectSnapshotCapture
             .Select(type => CaptureType(type, sourceRoot, cancellationToken))
             .OrderBy(type => type.Id, StringComparer.Ordinal)
             .ToArray();
+        ValidateIndexMetadata(indexMetadata, types);
 
         var toolVersion = typeof(ProjectSnapshotCapture).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
         return new ApiSnapshot(
@@ -78,7 +80,64 @@ internal sealed class ProjectSnapshotCapture
                 options.PackageVersion,
                 compilation.AssemblyName ?? project.AssemblyName ?? project.Name,
                 options.TargetFramework),
+            indexMetadata,
             types);
+    }
+
+    private static void ValidateIndexMetadata(
+        ApiIndexMetadata metadata,
+        IReadOnlyList<ApiType> types)
+    {
+        var namespaces = types
+            .SelectMany(type => GetNamespaceAndParents(type.Namespace))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var sections = types
+            .SelectMany(type => GetSectionAndParents(type.SourcePath))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in metadata.Namespaces.Where(entry => !namespaces.Contains(entry.Key)))
+        {
+            throw new InvalidDataException(
+                $"Namespace metadata key '{entry.Key}' does not match a captured namespace.");
+        }
+
+        foreach (var entry in metadata.Sections.Where(entry => !sections.Contains(entry.Key)))
+        {
+            throw new InvalidDataException(
+                $"Section metadata key '{entry.Key}' does not match a captured source folder.");
+        }
+    }
+
+    private static IEnumerable<string> GetNamespaceAndParents(string @namespace)
+    {
+        while (!string.IsNullOrEmpty(@namespace))
+        {
+            yield return @namespace;
+            var separator = @namespace.LastIndexOf('.');
+            @namespace = separator < 0 ? string.Empty : @namespace[..separator];
+        }
+    }
+
+    private static IEnumerable<string> GetSectionAndParents(string? sourcePath)
+    {
+        yield return string.Empty;
+        if (string.IsNullOrWhiteSpace(sourcePath))
+        {
+            yield break;
+        }
+
+        var separator = sourcePath.LastIndexOf('/');
+        if (separator < 0)
+        {
+            yield break;
+        }
+
+        var section = sourcePath[..separator];
+        var segments = section.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        for (var index = 1; index <= segments.Length; index++)
+        {
+            yield return string.Join('/', segments.Take(index));
+        }
     }
 
     private ApiType CaptureType(

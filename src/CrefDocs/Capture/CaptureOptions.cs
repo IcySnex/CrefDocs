@@ -6,5 +6,5 @@ internal sealed record CaptureOptions(
     string PackageId,
     string PackageVersion,
     string? SourceRoot = null,
-    string Configuration = "Release");
-
+    string Configuration = "Release",
+    string? MetadataPath = null);
