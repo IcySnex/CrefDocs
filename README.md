@@ -13,6 +13,7 @@ crefdocs capture \
   --package MyLibrary \
   --version 1.2.0 \
   --source-root Source/MyLibrary \
+  --metadata Docs/api-reference.json \
   --output artifacts/crefdocs.json
 ```
 
@@ -49,6 +50,25 @@ The output structure is selected when rendering, so it is not baked into the rel
 - `flat` places every type directly beneath the reference root.
 
 CrefDocs creates one page per public type and directory index pages. Internal types link to their generated pages; framework types link to Microsoft Learn. Every component of a constructed generic type links independently. A generated-file manifest lets subsequent runs remove stale pages without deleting handwritten files in the same directory.
+
+## Index descriptions
+
+An optional metadata file supplies descriptions for namespace and source-folder indexes without modifying generated XML documentation. Keep it with the documentation project, for example at `Docs/api-reference.json`:
+
+```json
+{
+  "namespaces": {
+    "MyLibrary": "The public MyLibrary API.",
+    "MyLibrary.Models": "Models shared by library operations."
+  },
+  "sections": {
+    "": "The public MyLibrary API organized by source folder.",
+    "Models": "Models shared by library operations."
+  }
+}
+```
+
+Namespace keys use full CLR namespace names. Section keys use `/`-separated folders relative to `--source-root`; an empty section key describes the source root. Pass the file to `capture` or `generate` with `--metadata`. Its normalized content is embedded in the snapshot, so `render` does not need the original file.
 
 ## Development
 
