@@ -85,6 +85,16 @@ internal sealed class RouteMap
         return relative + ".md";
     }
 
+    internal static string GetNamespaceRoute(string @namespace, RenderOptions options)
+    {
+        var relative = options.Structure == StructureMode.Namespace
+            ? string.Join('/', @namespace
+                .Split('.', StringSplitOptions.RemoveEmptyEntries)
+                .Select(Slug.Create))
+            : string.Empty;
+        return CombineRoute(options.BaseRoute, relative);
+    }
+
     internal static string GetDirectory(ApiType type, StructureMode structure)
     {
         return structure switch

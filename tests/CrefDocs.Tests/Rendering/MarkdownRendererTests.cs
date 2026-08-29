@@ -46,7 +46,7 @@ public sealed class MarkdownRendererTests
             An example widget.
 
             - **Type:** Class
-            - **Namespace:** Example
+            - **Namespace:** [Example](/reference)
 
             ```csharp
             public sealed class Widget
@@ -59,7 +59,7 @@ public sealed class MarkdownRendererTests
     [Theory]
     [InlineData((int)StructureMode.Flat, "repository.md")]
     [InlineData((int)StructureMode.Source, "services/repository.md")]
-    [InlineData((int)StructureMode.Namespace, "cref-docs/fixture/services/repository.md")]
+    [InlineData((int)StructureMode.Namespace, "crefdocs/fixture/services/repository.md")]
     public async Task RenderUsesSelectedStructure(int structureValue, string expectedPath)
     {
         var structure = (StructureMode)structureValue;
@@ -78,18 +78,48 @@ public sealed class MarkdownRendererTests
     }
 
     [Fact]
+    public async Task RenderPreservesDirectoryCasingInVisibleIndexTitles()
+    {
+        var files = await RenderFixtureAsync(StructureMode.Namespace);
+        var index = Assert.Single(files, file => file.RelativePath == "crefdocs/index.md").Content;
+
+        Assert.Contains("# CrefDocs", index, StringComparison.Ordinal);
+        Assert.Contains("| [Fixture](/reference/crefdocs/fixture) |", index, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RenderProducesLinkedMarkdownForTypesAndMembers()
     {
         var files = await RenderFixtureAsync(StructureMode.Source);
         var repository = Assert.Single(files, file => file.RelativePath == "services/repository.md").Content;
 
-        Assert.Contains("# Repository<T>", repository, StringComparison.Ordinal);
-        Assert.Contains("[`IRepository<T>`](/reference/services/i-repository)", repository, StringComparison.Ordinal);
+        Assert.Contains("# Repository&lt;T&gt;", repository, StringComparison.Ordinal);
+        Assert.Contains("description: \"An in-memory IRepository<T>.\"", repository, StringComparison.Ordinal);
+        Assert.Contains("[`IRepository<T>`](/reference/services/irepository)", repository, StringComparison.Ordinal);
         Assert.Contains("[`Result<T>`](/reference/models/result)", repository, StringComparison.Ordinal);
         Assert.Contains("[`string`](https://learn.microsoft.com/dotnet/api/system.string)", repository, StringComparison.Ordinal);
         Assert.Contains("Reads the value identified by `id`.", repository, StringComparison.Ordinal);
+        Assert.Contains("> Repository instances keep their values in memory.", repository, StringComparison.Ordinal);
+        Assert.Contains("> The lookup is performed synchronously.", repository, StringComparison.Ordinal);
+        Assert.Contains("> The name is intended for display.", repository, StringComparison.Ordinal);
+        Assert.Contains("- **Is Read Only:** `False`", repository, StringComparison.Ordinal);
+        Assert.Contains("public Result<T> Get(\n  string id\n)", repository, StringComparison.Ordinal);
+        Assert.Contains("- [`KeyNotFoundException`](https://learn.microsoft.com/dotnet/api/system.collections.generic.keynotfoundexception): No value has the supplied identifier.", repository, StringComparison.Ordinal);
+        Assert.Contains("| *(class)* `T` | The type of value stored by the repository. |", repository, StringComparison.Ordinal);
         Assert.Contains("## Events", repository, StringComparison.Ordinal);
         Assert.Contains("## Operators", repository, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderDocumentsPrimaryConstructorsWithoutRepeatingTheTypeHeading()
+    {
+        var files = await RenderFixtureAsync(StructureMode.Source);
+        var result = Assert.Single(files, file => file.RelativePath == "models/result.md").Content;
+
+        Assert.Contains("# Result&lt;T&gt;", result, StringComparison.Ordinal);
+        Assert.Contains("## Constructors", result, StringComparison.Ordinal);
+        Assert.Contains("Initializes a new instance of the [`Result<T>`](/reference/models/result) struct.", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("### Result", result, StringComparison.Ordinal);
     }
 
     [Fact]

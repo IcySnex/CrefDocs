@@ -3,6 +3,7 @@ using CrefDocs.Fixture.Models;
 namespace CrefDocs.Fixture.Services;
 
 /// <summary>An in-memory <see cref="IRepository{T}"/>.</summary>
+/// <remarks>Repository instances keep their values in memory.</remarks>
 /// <typeparam name="T">The type of value stored by the repository.</typeparam>
 public sealed partial class Repository<T> : IRepository<T>
     where T : class
@@ -11,6 +12,7 @@ public sealed partial class Repository<T> : IRepository<T>
     public event EventHandler<T>? Read;
 
     /// <inheritdoc/>
+    /// <remarks>The lookup is performed synchronously.</remarks>
     public Result<T> Get(string id) => throw new KeyNotFoundException(id);
 
     /// <summary>Returns the supplied value.</summary>
@@ -18,4 +20,3 @@ public sealed partial class Repository<T> : IRepository<T>
 
     private void OnRead(T value) => Read?.Invoke(this, value);
 }
-

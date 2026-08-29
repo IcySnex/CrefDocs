@@ -22,6 +22,23 @@ internal sealed class DocumentationMarkdown(RouteMap routes)
         return NormalizeWhitespace(builder.ToString());
     }
 
+    public string RenderPlainText(string? fragment)
+    {
+        if (string.IsNullOrWhiteSpace(fragment))
+        {
+            return string.Empty;
+        }
+
+        var root = XElement.Parse($"<root>{fragment}</root>", LoadOptions.PreserveWhitespace);
+        var builder = new StringBuilder();
+        foreach (var node in root.Nodes())
+        {
+            RenderPlainTextNode(node, builder);
+        }
+
+        return NormalizeWhitespace(builder.ToString()).Replace('\n', ' ');
+    }
+
     private void RenderNode(XNode node, StringBuilder builder)
     {
         if (node is XText text)
@@ -64,6 +81,81 @@ internal sealed class DocumentationMarkdown(RouteMap routes)
                 break;
             default:
                 AppendChildren(element, builder);
+                break;
+        }
+    }
+
+    private void RenderPlainTextNode(XNode node, StringBuilder builder)
+    {
+        if (node is XText text)
+        {
+            builder.Append(text.Value);
+            return;
+        }
+
+        if (node is not XElement element)
+        {
+            return;
+        }
+
+        switch (element.Name.LocalName)
+        {
+            case "see":
+                var languageKeyword = element.Attribute("langword")?.Value;
+                if (!string.IsNullOrWhiteSpace(languageKeyword))
+                {
+                    builder.Append(languageKeyword);
+                    break;
+                }
+
+                var href = element.Attribute("href")?.Value;
+                if (!string.IsNullOrWhiteSpace(href))
+                {
+                    builder.Append(string.IsNullOrWhiteSpace(element.Value) ? href : element.Value.Trim());
+                    break;
+                }
+
+                var documentationId = element.Attribute("cref")?.Value;
+                var declaringTypeId = GetDeclaringTypeId(documentationId);
+                builder.Append(string.IsNullOrWhiteSpace(element.Value)
+                    ? routes.TryGetDisplayName(declaringTypeId, out var internalName)
+                        ? internalName
+                        : GetCrefDisplayName(documentationId)
+                    : element.Value.Trim());
+                break;
+            case "paramref":
+            case "typeparamref":
+                builder.Append(element.Attribute("name")?.Value);
+                break;
+            case "c":
+            case "code":
+                builder.Append(element.Value.Trim());
+                break;
+            case "para":
+                foreach (var child in element.Nodes())
+                {
+                    RenderPlainTextNode(child, builder);
+                }
+
+                builder.Append(' ');
+                break;
+            case "br":
+                builder.Append(' ');
+                break;
+            case "list":
+                foreach (var item in element.Elements("item"))
+                {
+                    RenderPlainTextNode(item.Element("description") ?? item, builder);
+                    builder.Append(' ');
+                }
+
+                break;
+            default:
+                foreach (var child in element.Nodes())
+                {
+                    RenderPlainTextNode(child, builder);
+                }
+
                 break;
         }
     }

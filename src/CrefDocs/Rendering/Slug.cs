@@ -9,24 +9,12 @@ internal static class Slug
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         var builder = new StringBuilder(value.Length + 8);
-        for (var index = 0; index < value.Length; index++)
+        foreach (var character in value)
         {
-            var character = value[index];
             if (!char.IsLetterOrDigit(character))
             {
                 AppendSeparator(builder);
                 continue;
-            }
-
-            if (char.IsUpper(character) && builder.Length > 0)
-            {
-                var previous = value[index - 1];
-                var nextIsLower = index + 1 < value.Length && char.IsLower(value[index + 1]);
-                if (char.IsLower(previous) || char.IsDigit(previous) ||
-                    (char.IsUpper(previous) && nextIsLower))
-                {
-                    AppendSeparator(builder);
-                }
             }
 
             builder.Append(char.ToLowerInvariant(character));
@@ -43,4 +31,3 @@ internal static class Slug
         }
     }
 }
-

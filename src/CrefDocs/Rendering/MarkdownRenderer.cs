@@ -41,11 +41,14 @@ internal sealed class MarkdownRenderer
         RenderOptions options)
     {
         var builder = new StringBuilder();
-        WriteFrontmatter(builder, type.Name, documentation.Render(type.Documentation.Summary));
-        builder.Append("# ").AppendLine(type.Name).AppendLine();
+        WriteFrontmatter(builder, type.Name, documentation.RenderPlainText(type.Documentation.Summary));
+        builder.Append("# ").AppendLine(EscapeMarkdownText(type.Name)).AppendLine();
         WriteIfPresent(builder, documentation.Render(type.Documentation.Summary));
+        WriteRemarks(builder, documentation.Render(type.Documentation.Remarks));
         builder.Append("- **Type:** ").AppendLine(GetTypeLabel(type.Kind));
-        builder.Append("- **Namespace:** ").AppendLine(string.IsNullOrEmpty(type.Namespace) ? "Global" : type.Namespace);
+        var namespaceName = string.IsNullOrEmpty(type.Namespace) ? "Global" : type.Namespace;
+        builder.Append("- **Namespace:** [").Append(namespaceName).Append("](")
+            .Append(RouteMap.GetNamespaceRoute(type.Namespace, options)).AppendLine(")");
         if (type.BaseType is not null)
         {
             builder.Append("- **Inherits:** ").AppendLine(RenderReference(type.BaseType, routes));
@@ -58,11 +61,10 @@ internal sealed class MarkdownRenderer
         }
 
         builder.AppendLine().AppendLine("```csharp").AppendLine(type.Declaration).AppendLine("```");
-        WriteIfPresent(builder, documentation.Render(type.Documentation.Remarks));
         WriteTypeParameters(builder, type.TypeParameters, documentation);
 
         var groups = type.Members.GroupBy(member => member.Kind).ToDictionary(group => group.Key, group => group.ToArray());
-        WriteMembers(builder, "Constructors", groups.GetValueOrDefault(ApiMemberKind.Constructor), routes, documentation);
+        WriteConstructors(builder, type, groups.GetValueOrDefault(ApiMemberKind.Constructor), routes, documentation);
         WriteMembers(builder, "Properties", Combine(groups, ApiMemberKind.Property, ApiMemberKind.Indexer), routes, documentation);
         WriteMembers(builder, "Methods", groups.GetValueOrDefault(ApiMemberKind.Method), routes, documentation);
         WriteMembers(builder, "Events", groups.GetValueOrDefault(ApiMemberKind.Event), routes, documentation);
@@ -107,7 +109,7 @@ internal sealed class MarkdownRenderer
                 .ToArray();
             var title = string.IsNullOrEmpty(directory)
                 ? snapshot.Package.Id
-                : HumanizeSegment(directory.Split('/')[^1]);
+                : GetDirectoryDisplayName(snapshot, directory, options.Structure);
             var builder = new StringBuilder();
             WriteFrontmatter(builder, title, $"API reference for {title}.");
             builder.Append("# ").AppendLine(title).AppendLine();
@@ -125,7 +127,7 @@ internal sealed class MarkdownRenderer
                 foreach (var child in children)
                 {
                     var route = CombineRoute(options.BaseRoute, child);
-                    builder.Append("| [").Append(HumanizeSegment(child.Split('/')[^1])).Append("](")
+                    builder.Append("| [").Append(GetDirectoryDisplayName(snapshot, child, options.Structure)).Append("](")
                         .Append(route).AppendLine(") |");
                 }
 
@@ -139,7 +141,7 @@ internal sealed class MarkdownRenderer
                     .AppendLine("| ---- | ------- |");
                 foreach (var type in group)
                 {
-                    builder.Append("| [").Append(type.Name).Append("](").Append(routes[type.Id]).Append(") | ")
+                    builder.Append("| [").Append(EscapeMarkdownText(type.Name)).Append("](").Append(routes[type.Id]).Append(") | ")
                         .Append(EscapeTable(documentation.Render(type.Documentation.Summary))).AppendLine(" |");
                 }
 
@@ -174,19 +176,70 @@ internal sealed class MarkdownRenderer
             var anchor = occurrence == 1 ? baseAnchor : $"{baseAnchor}-{occurrence}";
 
             builder.AppendLine().Append("<a id=\"").Append(anchor).AppendLine("\"></a>");
-            builder.Append("### ").AppendLine(member.Name).AppendLine();
+            builder.Append("### ").AppendLine(EscapeMarkdownText(member.Name)).AppendLine();
             WriteIfPresent(builder, documentation.Render(member.Documentation.Summary));
+            WriteRemarks(builder, documentation.Render(member.Documentation.Remarks));
             if (member.Type is not null)
             {
                 builder.Append("- **Type:** ").AppendLine(RenderReference(member.Type, routes));
             }
 
-            builder.AppendLine().AppendLine("```csharp").AppendLine(member.Declaration).AppendLine("```");
+            if (member.IsReadOnly is not null)
+            {
+                builder.Append("- **Is Read Only:** `")
+                    .Append(member.IsReadOnly.Value ? "True" : "False")
+                    .AppendLine("`");
+            }
+
+            builder.AppendLine().AppendLine("```csharp").AppendLine(FormatMemberDeclaration(member.Declaration)).AppendLine("```");
             WriteParameters(builder, member.Parameters, routes, documentation);
             WriteTypeParameters(builder, member.TypeParameters, documentation);
             WriteIfPresent(builder, documentation.Render(member.Documentation.Returns), "**Returns:** ");
-            WriteIfPresent(builder, documentation.Render(member.Documentation.Remarks));
             WriteExceptions(builder, member.Exceptions, routes, documentation);
+        }
+    }
+
+    private static void WriteConstructors(
+        StringBuilder builder,
+        ApiType type,
+        IReadOnlyList<ApiMember>? constructors,
+        RouteMap routes,
+        DocumentationMarkdown documentation)
+    {
+        if (constructors is not { Count: > 0 })
+        {
+            return;
+        }
+
+        builder.AppendLine().AppendLine("## Constructors");
+        var anchor = Slug.Create(type.Name);
+        for (var index = 0; index < constructors.Count; index++)
+        {
+            var constructor = constructors[index];
+            builder.AppendLine().Append("<a id=\"").Append(anchor);
+            if (index > 0)
+            {
+                builder.Append('-').Append(index + 1);
+            }
+
+            builder.AppendLine("\"></a>");
+            if (constructor.IsPrimaryConstructor)
+            {
+                var reference = RenderReference(new ApiReference(type.Name, type.Id), routes);
+                WriteIfPresent(builder, $"Initializes a new instance of the {reference} {GetTypeNoun(type.Kind)}.");
+            }
+            else
+            {
+                WriteIfPresent(builder, documentation.Render(constructor.Documentation.Summary));
+                WriteRemarks(builder, documentation.Render(constructor.Documentation.Remarks));
+            }
+
+            builder.AppendLine("```csharp")
+                .AppendLine(FormatMemberDeclaration(constructor.Declaration))
+                .AppendLine("```");
+            WriteParameters(builder, constructor.Parameters, routes, documentation);
+            WriteTypeParameters(builder, constructor.TypeParameters, documentation);
+            WriteExceptions(builder, constructor.Exceptions, routes, documentation);
         }
     }
 
@@ -222,13 +275,18 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine().AppendLine("| Type parameter | Constraints | Summary |")
-            .AppendLine("| -------------- | ----------- | ------- |");
+        builder.AppendLine().AppendLine("| Type parameter | Summary |")
+            .AppendLine("| -------------- | ------- |");
         foreach (var parameter in parameters)
         {
-            builder.Append("| `").Append(parameter.Name).Append("` | ")
-                .Append(parameter.Constraints is null ? string.Empty : $"`{parameter.Constraints}`")
-                .Append(" | ").Append(EscapeTable(documentation.Render(parameter.Description))).AppendLine(" |");
+            builder.Append("| ");
+            if (!string.IsNullOrWhiteSpace(parameter.Constraints))
+            {
+                builder.Append("*(").Append(parameter.Constraints).Append(")* ");
+            }
+
+            builder.Append('`').Append(parameter.Name).Append("` | ")
+                .Append(EscapeTable(documentation.Render(parameter.Description))).AppendLine(" |");
         }
     }
 
@@ -250,7 +308,7 @@ internal sealed class MarkdownRenderer
             var description = documentation.Render(exception.Description);
             if (!string.IsNullOrEmpty(description))
             {
-                builder.Append(" — ").Append(description);
+                builder.Append(": ").Append(description);
             }
 
             builder.AppendLine();
@@ -339,11 +397,47 @@ internal sealed class MarkdownRenderer
                 : word));
     }
 
+    private static string GetDirectoryDisplayName(
+        ApiSnapshot snapshot,
+        string directory,
+        StructureMode structure)
+    {
+        var depth = directory.Count(character => character == '/');
+        var type = snapshot.Types
+            .Where(candidate => RouteMap.GetDirectory(candidate, structure) == directory ||
+                RouteMap.GetDirectory(candidate, structure).StartsWith(directory + '/', StringComparison.OrdinalIgnoreCase))
+            .OrderBy(candidate => candidate.SourcePath, StringComparer.Ordinal)
+            .ThenBy(candidate => candidate.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (type is null)
+        {
+            return HumanizeSegment(directory.Split('/')[^1]);
+        }
+
+        var segments = structure switch
+        {
+            StructureMode.Namespace => type.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries),
+            StructureMode.Source => (Path.GetDirectoryName(type.SourcePath?.Replace('/', Path.DirectorySeparatorChar)) ?? string.Empty)
+                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries),
+            _ => [],
+        };
+        return depth < segments.Length
+            ? segments[depth]
+            : HumanizeSegment(directory.Split('/')[^1]);
+    }
+
     private static string GetTypeLabel(ApiTypeKind kind) => kind switch
     {
         ApiTypeKind.RecordClass => "Record class",
         ApiTypeKind.RecordStruct => "Record struct",
         _ => kind.ToString(),
+    };
+
+    private static string GetTypeNoun(ApiTypeKind kind) => kind switch
+    {
+        ApiTypeKind.Class or ApiTypeKind.RecordClass => "class",
+        ApiTypeKind.Struct or ApiTypeKind.RecordStruct => "struct",
+        _ => "type",
     };
 
     private static string GetTypeSection(ApiTypeKind kind) => kind switch
@@ -381,6 +475,169 @@ internal sealed class MarkdownRenderer
         builder.AppendLine(value).AppendLine();
     }
 
+    private static void WriteRemarks(StringBuilder builder, string? remarks)
+    {
+        if (string.IsNullOrWhiteSpace(remarks))
+        {
+            return;
+        }
+
+        EnsureBlankLine(builder);
+        foreach (var line in remarks.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            builder.Append('>');
+            if (line.Length > 0)
+            {
+                builder.Append(' ').Append(line);
+            }
+
+            builder.AppendLine();
+        }
+
+        builder.AppendLine();
+    }
+
+    private static string FormatMemberDeclaration(string declaration)
+    {
+        var lines = declaration.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var formatted = new List<string>(lines.Length);
+        foreach (var line in lines)
+        {
+            FormatDeclarationLine(line, formatted);
+        }
+
+        return string.Join(Environment.NewLine, formatted);
+    }
+
+    private static void FormatDeclarationLine(string line, ICollection<string> output)
+    {
+        var open = line.IndexOf('(');
+        if (open < 0)
+        {
+            output.Add(line);
+            return;
+        }
+
+        var close = FindMatchingParenthesis(line, open);
+        if (close < 0)
+        {
+            output.Add(line);
+            return;
+        }
+
+        var parameters = SplitTopLevel(line[(open + 1)..close]);
+        if (parameters.Count == 0)
+        {
+            output.Add(line);
+            return;
+        }
+
+        var indentation = line[..(line.Length - line.TrimStart().Length)];
+        output.Add(line[..(open + 1)]);
+        for (var index = 0; index < parameters.Count; index++)
+        {
+            output.Add($"{indentation}  {parameters[index]}{(index < parameters.Count - 1 ? "," : string.Empty)}");
+        }
+
+        output.Add(indentation + line[close..]);
+    }
+
+    private static int FindMatchingParenthesis(string value, int open)
+    {
+        var depth = 0;
+        for (var index = open; index < value.Length; index++)
+        {
+            depth += value[index] switch
+            {
+                '(' => 1,
+                ')' => -1,
+                _ => 0,
+            };
+            if (depth == 0)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static IReadOnlyList<string> SplitTopLevel(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        var parts = new List<string>();
+        var start = 0;
+        var round = 0;
+        var square = 0;
+        var curly = 0;
+        var angle = 0;
+        var quote = '\0';
+        var escaped = false;
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (quote != '\0')
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                }
+                else if (value[index] == '\\')
+                {
+                    escaped = true;
+                }
+                else if (value[index] == quote)
+                {
+                    quote = '\0';
+                }
+
+                continue;
+            }
+
+            switch (value[index])
+            {
+                case '\"':
+                case '\'':
+                    quote = value[index];
+                    break;
+                case '(':
+                    round++;
+                    break;
+                case ')':
+                    round--;
+                    break;
+                case '[':
+                    square++;
+                    break;
+                case ']':
+                    square--;
+                    break;
+                case '{':
+                    curly++;
+                    break;
+                case '}':
+                    curly--;
+                    break;
+                case '<':
+                    angle++;
+                    break;
+                case '>':
+                    angle--;
+                    break;
+                case ',' when round == 0 && square == 0 && curly == 0 && angle == 0:
+                    parts.Add(value[start..index].Trim());
+                    start = index + 1;
+                    break;
+            }
+        }
+
+        parts.Add(value[start..].Trim());
+        return parts;
+    }
+
     private static void EnsureBlankLine(StringBuilder builder)
     {
         var lineBreaks = 0;
@@ -405,5 +662,12 @@ internal sealed class MarkdownRenderer
     private static string EscapeTable(string value)
     {
         return value.Replace("|", "\\|", StringComparison.Ordinal).Replace("\n", "<br>", StringComparison.Ordinal);
+    }
+
+    private static string EscapeMarkdownText(string value)
+    {
+        return value.Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal);
     }
 }
