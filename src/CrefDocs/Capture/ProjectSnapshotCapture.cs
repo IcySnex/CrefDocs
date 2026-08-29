@@ -273,7 +273,7 @@ internal sealed class ProjectSnapshotCapture
         {
             IMethodSymbol { MethodKind: MethodKind.Constructor } => symbol.ContainingType.Name,
             IPropertySymbol { IsIndexer: true } => "this",
-            _ => symbol.Name,
+            _ => SymbolFormatter.FormatMemberName(symbol),
         };
     }
 
