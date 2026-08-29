@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  validate:
+    name: Build, test, and pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore CrefDocs.slnx
+
+      - name: Test
+        run: dotnet test CrefDocs.slnx --configuration Release --no-restore
+
+      - name: Pack tool
+        run: dotnet pack src/CrefDocs/CrefDocs.csproj --configuration Release --no-restore --output artifacts
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: crefdocs-tool
+          path: artifacts/*.nupkg
+          if-no-files-found: error
