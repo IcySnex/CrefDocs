@@ -82,9 +82,13 @@ public sealed class MarkdownRendererTests
     {
         var files = await RenderFixtureAsync(StructureMode.Namespace);
         var index = Assert.Single(files, file => file.RelativePath == "crefdocs/index.md").Content;
+        var collections = Assert.Single(
+            files,
+            file => file.RelativePath == "crefdocs/fixture/collections/index.md").Content;
 
         Assert.Contains("# CrefDocs", index, StringComparison.Ordinal);
         Assert.Contains("| [Fixture](/reference/crefdocs/fixture) |", index, StringComparison.Ordinal);
+        Assert.Contains("| Class | Summary |", collections, StringComparison.Ordinal);
     }
 
     [Fact]

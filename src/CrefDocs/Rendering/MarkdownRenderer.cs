@@ -137,7 +137,7 @@ internal sealed class MarkdownRenderer
             foreach (var group in directTypes.GroupBy(type => GetTypeSection(type.Kind)))
             {
                 builder.Append("## ").AppendLine(group.Key).AppendLine();
-                builder.Append("| ").Append(group.Key.TrimEnd('s')).AppendLine(" | Summary |")
+                builder.Append("| ").Append(GetTypeColumnLabel(group.Key)).AppendLine(" | Summary |")
                     .AppendLine("| ---- | ------- |");
                 foreach (var type in group)
                 {
@@ -448,6 +448,16 @@ internal sealed class MarkdownRenderer
         ApiTypeKind.Enum => "Enums",
         ApiTypeKind.Delegate => "Delegates",
         _ => "Types",
+    };
+
+    private static string GetTypeColumnLabel(string section) => section switch
+    {
+        "Classes" => "Class",
+        "Structs" => "Struct",
+        "Interfaces" => "Interface",
+        "Enums" => "Enum",
+        "Delegates" => "Delegate",
+        _ => "Type",
     };
 
     private static void WriteFrontmatter(StringBuilder builder, string title, string description)
