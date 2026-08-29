@@ -38,6 +38,20 @@ public sealed class ProjectSnapshotCaptureTests
         Assert.Contains(repository.Members, member => member.Name == "Name" && member.Kind == ApiMemberKind.Property);
     }
 
+    [Fact]
+    public async Task CaptureFlattensExtensionBlocksIntoTheirPublicContainer()
+    {
+        var snapshot = await CaptureFixtureAsync();
+
+        var extensions = Assert.Single(snapshot.Types, type => type.Name == "ResultExtensions");
+        var unwrap = Assert.Single(extensions.Members);
+        Assert.Equal("Unwrap", unwrap.Name);
+        Assert.Contains("extension<T>(Result<T> result)", unwrap.Declaration, StringComparison.Ordinal);
+        Assert.Equal("result", Assert.Single(unwrap.Parameters).Name);
+        Assert.Equal("The result being read.", Assert.Single(unwrap.Parameters).Description);
+        Assert.Equal("T", Assert.Single(unwrap.TypeParameters).Name);
+    }
+
     private static Task<ApiSnapshot> CaptureFixtureAsync()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -61,4 +75,3 @@ public sealed class ProjectSnapshotCaptureTests
             ?? throw new DirectoryNotFoundException("Could not find the CrefDocs repository root.");
     }
 }
-

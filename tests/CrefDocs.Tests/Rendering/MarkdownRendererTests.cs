@@ -6,6 +6,56 @@ namespace CrefDocs.Tests.Rendering;
 
 public sealed class MarkdownRendererTests
 {
+    [Fact]
+    public void RenderTypeUsesStableMarkdownLayout()
+    {
+        var snapshot = new ApiSnapshot(
+            ApiSnapshot.CurrentSchemaVersion,
+            "0.1.0",
+            new ApiPackage("Example", "1.0.0", "Example", "net10.0"),
+            [
+                new ApiType(
+                    "T:Example.Widget",
+                    "Widget",
+                    "Example",
+                    ApiTypeKind.Class,
+                    "public sealed class Widget",
+                    "Widget.cs",
+                    null,
+                    null,
+                    [],
+                    new ApiDocumentation("An example widget.", null, null, null),
+                    [],
+                    []),
+            ]);
+
+        var files = new MarkdownRenderer().Render(
+            snapshot,
+            new RenderOptions("unused", "/reference", StructureMode.Flat));
+        var page = Assert.Single(files, file => file.RelativePath == "widget.md").Content;
+
+        Assert.Equal(
+            """
+            ---
+            title: "Widget"
+            description: "An example widget."
+            ---
+
+            # Widget
+
+            An example widget.
+
+            - **Type:** Class
+            - **Namespace:** Example
+
+            ```csharp
+            public sealed class Widget
+            ```
+
+            """,
+            page);
+    }
+
     [Theory]
     [InlineData((int)StructureMode.Flat, "repository.md")]
     [InlineData((int)StructureMode.Source, "services/repository.md")]

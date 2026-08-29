@@ -33,7 +33,13 @@ internal sealed class ProjectSnapshotCapture
         using var workspace = MSBuildWorkspace.Create(properties);
         workspace.LoadMetadataForReferencedProjects = true;
         workspace.RegisterWorkspaceFailedHandler(
-            args => workspaceDiagnostics.Add(args.Diagnostic.Message));
+            args =>
+            {
+                if (args.Diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
+                {
+                    workspaceDiagnostics.Add(args.Diagnostic.Message);
+                }
+            });
 
         var project = await workspace.OpenProjectAsync(projectPath, cancellationToken: cancellationToken);
         var compilation = await project.GetCompilationAsync(cancellationToken)
@@ -81,9 +87,16 @@ internal sealed class ProjectSnapshotCapture
         CancellationToken cancellationToken)
     {
         var documentation = _documentation.Read(symbol, cancellationToken);
-        var members = symbol.GetMembers()
+        var regularMembers = symbol.GetMembers()
             .Where(IsPublicApiMember)
-            .Select(member => CaptureMember(member, cancellationToken))
+            .Select(member => CaptureMember(member, null, cancellationToken));
+        var extensionMembers = symbol.GetTypeMembers()
+            .Where(type => type.TypeKind == TypeKind.Extension)
+            .SelectMany(extension => extension.GetMembers()
+                .Where(IsPublicApiMember)
+                .Select(member => CaptureMember(member, extension, cancellationToken)));
+        var members = regularMembers
+            .Concat(extensionMembers)
             .OrderBy(member => member.Kind)
             .ThenBy(member => member.Name, StringComparer.Ordinal)
             .ThenBy(member => member.Id, StringComparer.Ordinal)
@@ -106,32 +119,47 @@ internal sealed class ProjectSnapshotCapture
             members);
     }
 
-    private ApiMember CaptureMember(ISymbol symbol, CancellationToken cancellationToken)
+    private ApiMember CaptureMember(
+        ISymbol symbol,
+        INamedTypeSymbol? extension,
+        CancellationToken cancellationToken)
     {
         var documentation = _documentation.Read(symbol, cancellationToken);
-        var parameters = symbol switch
+        var extensionDocumentation = extension is null
+            ? DocumentationResult.Empty
+            : _documentation.Read(extension, cancellationToken);
+        var memberParameters = symbol switch
         {
             IMethodSymbol method => method.Parameters,
             IPropertySymbol property when property.IsIndexer => property.Parameters,
             _ => [],
         };
-        var typeParameters = symbol is IMethodSymbol genericMethod
+        var parameters = extension?.ExtensionParameter is { } receiver
+            ? new[] { receiver }.Concat(memberParameters)
+            : memberParameters;
+        var memberTypeParameters = symbol is IMethodSymbol genericMethod
             ? genericMethod.TypeParameters
             : [];
+        var typeParameters = extension is null
+            ? memberTypeParameters
+            : extension.TypeParameters.Concat(memberTypeParameters);
 
         return new ApiMember(
             GetRequiredDocumentationId(symbol),
             GetMemberName(symbol),
             GetMemberKind(symbol),
-            SymbolFormatter.FormatMemberDeclaration(symbol),
+            extension is null
+                ? SymbolFormatter.FormatMemberDeclaration(symbol)
+                : SymbolFormatter.FormatExtensionMemberDeclaration(symbol, extension),
             GetMemberType(symbol),
             documentation.Documentation,
-            CaptureTypeParameters(typeParameters, documentation),
+            CaptureTypeParameters(typeParameters, documentation.FillMissingFrom(extensionDocumentation)),
             parameters.Select(parameter => new ApiParameter(
                 parameter.Name,
                 CreateReference(parameter.Type),
                 parameter.HasExplicitDefaultValue ? FormatDefaultValue(parameter.ExplicitDefaultValue) : null,
-                documentation.Parameters.GetValueOrDefault(parameter.Name))).ToArray(),
+                documentation.Parameters.GetValueOrDefault(parameter.Name) ??
+                    extensionDocumentation.Parameters.GetValueOrDefault(parameter.Name))).ToArray(),
             documentation.Exceptions.Select(exception => new ApiException(
                 CreateReference(exception.DocumentationId),
                 exception.Description)).ToArray());
@@ -181,7 +209,8 @@ internal sealed class ProjectSnapshotCapture
 
     private static bool IsPublicApiType(INamedTypeSymbol symbol)
     {
-        return !symbol.IsImplicitlyDeclared &&
+        return symbol.TypeKind != TypeKind.Extension &&
+            !symbol.IsImplicitlyDeclared &&
             IsPublicApiAccessibility(symbol.DeclaredAccessibility) &&
             (symbol.ContainingType is null || IsPublicApiType(symbol.ContainingType));
     }

@@ -68,7 +68,7 @@ internal static class SymbolFormatter
             var start = declaration.GetFirstToken().SpanStart;
             var header = declaration.SyntaxTree.GetText().ToString(new Microsoft.CodeAnalysis.Text.TextSpan(start, end - start));
             header = Regex.Replace(header, @"\bpartial\s+", string.Empty, RegexOptions.CultureInvariant);
-            return Regex.Replace(header, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
+            return NormalizeDeclaration(header);
         }
 
         return $"{FormatAccessibility(symbol.DeclaredAccessibility)} {symbol.TypeKind.ToString().ToLowerInvariant()} {symbol.Name}";
@@ -88,6 +88,25 @@ internal static class SymbolFormatter
         }
 
         return declaration;
+    }
+
+    public static string FormatExtensionMemberDeclaration(ISymbol symbol, INamedTypeSymbol extension)
+    {
+        var syntax = extension.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<ExtensionBlockDeclarationSyntax>()
+            .FirstOrDefault();
+        if (syntax is null)
+        {
+            return FormatMemberDeclaration(symbol);
+        }
+
+        var start = syntax.GetFirstToken().SpanStart;
+        var end = syntax.OpenBraceToken.SpanStart;
+        var header = syntax.SyntaxTree.GetText()
+            .ToString(new Microsoft.CodeAnalysis.Text.TextSpan(start, end - start));
+        header = NormalizeDeclaration(header);
+        return $"{header}{Environment.NewLine}{{{Environment.NewLine}    {FormatMemberDeclaration(symbol)}{Environment.NewLine}}}";
     }
 
     public static string FormatReference(ITypeSymbol symbol)
@@ -150,4 +169,13 @@ internal static class SymbolFormatter
         Accessibility.ProtectedAndInternal => "private protected",
         _ => string.Empty,
     };
+
+    private static string NormalizeDeclaration(string declaration)
+    {
+        return Regex.Replace(declaration, @"\s+", " ", RegexOptions.CultureInvariant)
+            .Replace("( ", "(", StringComparison.Ordinal)
+            .Replace(" )", ")", StringComparison.Ordinal)
+            .Replace(" ,", ",", StringComparison.Ordinal)
+            .Trim();
+    }
 }

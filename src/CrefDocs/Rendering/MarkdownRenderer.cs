@@ -372,13 +372,34 @@ internal sealed class MarkdownRenderer
             return;
         }
 
-        builder.AppendLine();
+        EnsureBlankLine(builder);
         if (prefix is not null)
         {
             builder.Append(prefix);
         }
 
         builder.AppendLine(value).AppendLine();
+    }
+
+    private static void EnsureBlankLine(StringBuilder builder)
+    {
+        var lineBreaks = 0;
+        for (var index = builder.Length - 1; index >= 0; index--)
+        {
+            if (builder[index] == '\n')
+            {
+                lineBreaks++;
+            }
+            else if (builder[index] != '\r')
+            {
+                break;
+            }
+        }
+
+        while (lineBreaks++ < 2)
+        {
+            builder.AppendLine();
+        }
     }
 
     private static string EscapeTable(string value)
