@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>crefdocs</ToolCommandName>
+
+    <PackageId>CrefDocs.Tool</PackageId>
+    <Version>0.1.0</Version>
+    <Title>CrefDocs</Title>
+    <Authors>IcySnex</Authors>
+    <Description>Generate linked Markdown API reference documentation for .NET projects.</Description>
+    <PackageProjectUrl>https://github.com/IcySnex/CrefDocs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/IcySnex/CrefDocs</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>documentation;markdown;api-reference;dotnet-tool;xml-docs</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CrefDocs.Tests" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>

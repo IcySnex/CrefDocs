@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CrefDocs/CrefDocs.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CrefDocs.Fixture/CrefDocs.Fixture.csproj" />
+    <Project Path="tests/CrefDocs.Tests/CrefDocs.Tests.csproj" />
+  </Folder>
+</Solution>
+
