@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Encodings.Web;
 
 namespace CrefDocs.Snapshot;
 
@@ -9,6 +10,7 @@ internal static class SnapshotSerializer
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters =
         {
             new JsonStringEnumConverter<ApiTypeKind>(JsonNamingPolicy.CamelCase),
@@ -37,5 +39,38 @@ internal static class SnapshotSerializer
 
         return snapshot;
     }
-}
 
+    public static async Task WriteAsync(
+        ApiSnapshot snapshot,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        var fullPath = Path.GetFullPath(path);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        var json = Serialize(snapshot);
+        if (File.Exists(fullPath) && string.Equals(
+            await File.ReadAllTextAsync(fullPath, cancellationToken),
+            json,
+            StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var temporaryPath = fullPath + ".tmp";
+        await File.WriteAllTextAsync(temporaryPath, json, cancellationToken);
+        File.Move(temporaryPath, fullPath, overwrite: true);
+    }
+
+    public static async Task<ApiSnapshot> ReadAsync(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (!File.Exists(fullPath))
+        {
+            throw new FileNotFoundException("The CrefDocs snapshot does not exist.", fullPath);
+        }
+
+        return Deserialize(await File.ReadAllTextAsync(fullPath, cancellationToken));
+    }
+}
