@@ -20,6 +20,8 @@ jobs:
   validate:
     name: Build, test, and pack
     runs-on: ubuntu-latest
+    outputs:
+      package_version: ${{ steps.version.outputs.package_version }}
 
     steps:
       - name: Check out source
@@ -30,6 +32,24 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Read and validate package version
+        id: version
+        shell: bash
+        run: |
+          package_version="$(dotnet msbuild src/CrefDocs/CrefDocs.csproj -getProperty:PackageVersion -nologo -verbosity:quiet)"
+
+          if [[ -z "$package_version" || "$package_version" == "null" ]]; then
+            echo "Could not determine the package version."
+            exit 1
+          fi
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "v${package_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${package_version}."
+            exit 1
+          fi
+
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+
       - name: Restore
         run: dotnet restore CrefDocs.slnx
 
@@ -39,9 +59,52 @@ jobs:
       - name: Pack tool
         run: dotnet pack src/CrefDocs/CrefDocs.csproj --configuration Release --no-restore --output artifacts
 
+      - name: Create GitHub release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          package_notes="$(dotnet msbuild src/CrefDocs/CrefDocs.csproj -getProperty:PackageReleaseNotes -nologo -verbosity:quiet)"
+
+          if [[ -z "$package_notes" || "$package_notes" == "null" ]]; then
+            echo "CrefDocs.Tool has no PackageReleaseNotes."
+            exit 1
+          fi
+
+          printf '%s\n' "$package_notes" > artifacts/release-notes.md
+
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
           name: crefdocs-tool
-          path: artifacts/*.nupkg
+          path: artifacts/*
           if-no-files-found: error
+
+  publish:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Download validated package
+        uses: actions/download-artifact@v8
+        with:
+          name: crefdocs-tool
+          path: artifacts
+
+      - name: Log in to NuGet.org with trusted publishing
+        id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: IcySnex
+
+      - name: Publish to NuGet.org
+        run: dotnet nuget push artifacts/*.nupkg --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" artifacts/*.nupkg --repo "${GITHUB_REPOSITORY}" --verify-tag --notes-file artifacts/release-notes.md --title "CrefDocs ${{ needs.validate.outputs.package_version }}"

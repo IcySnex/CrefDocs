@@ -2,6 +2,21 @@
 
 CrefDocs generates compact, linked Markdown API references from .NET projects. It captures a released public API into a deterministic `crefdocs.json` snapshot, then renders that snapshot without rebuilding the original project.
 
+## Installation
+
+Install the tool globally:
+
+```bash
+dotnet tool install --global CrefDocs.Tool --version 0.1.0
+```
+
+For a pinned CI-only installation:
+
+```bash
+dotnet tool install CrefDocs.Tool --version 0.1.0 --tool-path .tools
+.tools/crefdocs --help
+```
+
 ## Commands
 
 Capture a release:

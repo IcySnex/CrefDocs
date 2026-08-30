@@ -9,6 +9,7 @@
     <Title>CrefDocs</Title>
     <Authors>IcySnex</Authors>
     <Description>Generate linked Markdown API reference documentation for .NET projects.</Description>
+    <PackageReleaseNotes>Initial release with deterministic API snapshots and linked Markdown rendering for flat, namespace and source-folder structures.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/IcySnex/CrefDocs</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IcySnex/CrefDocs</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
