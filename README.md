@@ -7,13 +7,13 @@ CrefDocs generates compact, linked Markdown API references from .NET projects. I
 Install the tool globally:
 
 ```bash
-dotnet tool install --global CrefDocs.Tool --version 0.1.0
+dotnet tool install --global CrefDocs.Tool --version 0.1.1
 ```
 
 For a pinned CI-only installation:
 
 ```bash
-dotnet tool install CrefDocs.Tool --version 0.1.0 --tool-path .tools
+dotnet tool install CrefDocs.Tool --version 0.1.1 --tool-path .tools
 .tools/crefdocs --help
 ```
 

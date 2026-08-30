@@ -5,11 +5,11 @@
     <ToolCommandName>crefdocs</ToolCommandName>
 
     <PackageId>CrefDocs.Tool</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Title>CrefDocs</Title>
     <Authors>IcySnex</Authors>
     <Description>Generate linked Markdown API reference documentation for .NET projects.</Description>
-    <PackageReleaseNotes>Initial release with deterministic API snapshots and linked Markdown rendering for flat, namespace and source-folder structures.</PackageReleaseNotes>
+    <PackageReleaseNotes>Use compact, overload-specific operator headings and link member references to their generated anchors.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/IcySnex/CrefDocs</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IcySnex/CrefDocs</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
