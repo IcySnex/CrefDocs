@@ -108,7 +108,7 @@ public sealed class MarkdownRendererTests
         var services = Assert.Single(files, file => file.RelativePath == "services/index.md").Content;
 
         Assert.Contains("Public API fixtures organized by source folder.", root, StringComparison.Ordinal);
-        Assert.Contains("- **Kind:** Section\n- **Version:** 1.0.0\n- **Target Framework:** net10.0", root, StringComparison.Ordinal);
+        Assert.Contains("- **Kind:** Package\n- **Version:** 1.0.0\n- **Target Framework:** net10.0", root, StringComparison.Ordinal);
         Assert.Contains("| [Services](/reference/services) | Repository service fixtures. |", root, StringComparison.Ordinal);
         Assert.Contains("description: \"Repository service fixtures.\"", services, StringComparison.Ordinal);
         Assert.Contains("- **Section:** [CrefDocs.Fixture](/reference)", services, StringComparison.Ordinal);

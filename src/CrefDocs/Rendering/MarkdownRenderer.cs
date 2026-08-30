@@ -567,7 +567,7 @@ internal sealed class MarkdownRenderer
         string? indexKey,
         RenderOptions options)
     {
-        if (string.IsNullOrEmpty(directory) && options.Structure is not StructureMode.Source)
+        if (string.IsNullOrEmpty(directory))
         {
             EnsureBlankLine(builder);
             builder.AppendLine("- **Kind:** Package");
@@ -594,20 +594,13 @@ internal sealed class MarkdownRenderer
         {
             EnsureBlankLine(builder);
             builder.AppendLine("- **Kind:** Section");
-            if (string.IsNullOrEmpty(directory))
-            {
-                WritePackageMetadata(builder, snapshot.Package);
-            }
-            else
-            {
-                var parent = GetParentDirectory(directory);
-                var parentTitle = string.IsNullOrEmpty(parent)
-                    ? snapshot.Package.Id
-                    : GetDirectoryDisplayName(snapshot, parent, options.Structure);
-                builder.Append("- **Section:** [")
-                    .Append(parentTitle).Append("](")
-                    .Append(CombineRoute(options.BaseRoute, parent)).AppendLine(")");
-            }
+            var parent = GetParentDirectory(directory);
+            var parentTitle = string.IsNullOrEmpty(parent)
+                ? snapshot.Package.Id
+                : GetDirectoryDisplayName(snapshot, parent, options.Structure);
+            builder.Append("- **Section:** [")
+                .Append(parentTitle).Append("](")
+                .Append(CombineRoute(options.BaseRoute, parent)).AppendLine(")");
         }
     }
 
