@@ -46,7 +46,7 @@ public sealed class MarkdownRendererTests
 
             An example widget.
 
-            - **Type:** Class
+            - **Kind:** Class
             - **Namespace:** [Example](/reference)
 
             ```csharp
@@ -88,7 +88,7 @@ public sealed class MarkdownRendererTests
             file => file.RelativePath == "crefdocs/fixture/collections/index.md").Content;
 
         Assert.Contains("# CrefDocs", index, StringComparison.Ordinal);
-        Assert.Contains("- **Type:** Namespace", index, StringComparison.Ordinal);
+        Assert.Contains("- **Kind:** Namespace", index, StringComparison.Ordinal);
         Assert.Contains("| [CrefDocs.Fixture](/reference/crefdocs/fixture) | Public API fixtures used to verify CrefDocs. |", index, StringComparison.Ordinal);
         Assert.Contains("| Class | Summary |", collections, StringComparison.Ordinal);
     }
@@ -101,7 +101,7 @@ public sealed class MarkdownRendererTests
         var services = Assert.Single(files, file => file.RelativePath == "services/index.md").Content;
 
         Assert.Contains("Public API fixtures organized by source folder.", root, StringComparison.Ordinal);
-        Assert.Contains("- **Type:** Section", root, StringComparison.Ordinal);
+        Assert.Contains("- **Kind:** Section", root, StringComparison.Ordinal);
         Assert.Contains("| [Services](/reference/services) | Repository service fixtures. |", root, StringComparison.Ordinal);
         Assert.Contains("description: \"Repository service fixtures.\"", services, StringComparison.Ordinal);
         Assert.Contains("- **Section:** [CrefDocs.Fixture](/reference)", services, StringComparison.Ordinal);
@@ -126,10 +126,10 @@ public sealed class MarkdownRendererTests
         Assert.DoesNotContain("- **Type:** [`", repository, StringComparison.Ordinal);
         Assert.Contains("**Type:** <code><a href=\"https://learn.microsoft.com/dotnet/api/system.string\">string</a>?</code>", repository, StringComparison.Ordinal);
         Assert.Contains("public Result<T> Get(\n  string id)", repository, StringComparison.Ordinal);
-        var returns = "**Returns:** <code><a href=\"/reference/models/result\">Result</a>&lt;T&gt;</code>: The matching value.";
+        var returns = "**Returns**\n\n- <code><a href=\"/reference/models/result\">Result</a>&lt;T&gt;</code>: The matching value.";
         Assert.Contains(returns, repository, StringComparison.Ordinal);
-        Assert.True(repository.IndexOf(returns, StringComparison.Ordinal) < repository.IndexOf("public Result<T> Get(", StringComparison.Ordinal));
-        Assert.Contains("**Returns:** <code><a href=\"https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1\">Task</a>&lt;<a href=\"/reference/models/result\">Result</a>&lt;T&gt;&gt;</code>: The matching value once the operation completes.", repository, StringComparison.Ordinal);
+        Assert.True(repository.IndexOf(returns, StringComparison.Ordinal) > repository.IndexOf("public Result<T> Get(", StringComparison.Ordinal));
+        Assert.Contains("**Returns**\n\n- <code><a href=\"https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1\">Task</a>&lt;<a href=\"/reference/models/result\">Result</a>&lt;T&gt;&gt;</code>: The matching value once the operation completes.", repository, StringComparison.Ordinal);
         Assert.Contains("- <code><a href=\"https://learn.microsoft.com/dotnet/api/system.collections.generic.keynotfoundexception\">KeyNotFoundException</a></code>: No value has the supplied identifier.", repository, StringComparison.Ordinal);
         Assert.Contains("| *(class)* `T` | The type of value stored by the repository. |", repository, StringComparison.Ordinal);
         Assert.Contains("## Events", repository, StringComparison.Ordinal);

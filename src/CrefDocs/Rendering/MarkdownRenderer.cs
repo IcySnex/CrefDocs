@@ -46,7 +46,7 @@ internal sealed class MarkdownRenderer
         builder.Append("# ").AppendLine(EscapeMarkdownText(type.Name)).AppendLine();
         WriteIfPresent(builder, documentation.Render(type.Documentation.Summary));
         WriteRemarks(builder, documentation.Render(type.Documentation.Remarks));
-        builder.Append("- **Type:** ").AppendLine(GetTypeLabel(type.Kind));
+        builder.Append("- **Kind:** ").AppendLine(GetTypeLabel(type.Kind));
         var namespaceName = string.IsNullOrEmpty(type.Namespace) ? "Global" : type.Namespace;
         builder.Append("- **Namespace:** [").Append(namespaceName).Append("](")
             .Append(RouteMap.GetNamespaceRoute(type.Namespace, options)).AppendLine(")");
@@ -201,11 +201,6 @@ internal sealed class MarkdownRenderer
             builder.Append("### ").AppendLine(EscapeMarkdownText(member.Name)).AppendLine();
             WriteIfPresent(builder, documentation.Render(member.Documentation.Summary));
             WriteRemarks(builder, documentation.Render(member.Documentation.Remarks));
-            if (member.Kind is ApiMemberKind.Method or ApiMemberKind.Operator)
-            {
-                WriteReturns(builder, member, routes, documentation);
-            }
-
             if (member.Type is not null && member.Kind is not ApiMemberKind.Method and not ApiMemberKind.Operator)
             {
                 EnsureBlankLine(builder);
@@ -216,6 +211,11 @@ internal sealed class MarkdownRenderer
             builder.AppendLine("```csharp").AppendLine(FormatMemberDeclaration(member.Declaration)).AppendLine("```");
             WriteParameters(builder, member.Parameters, routes, documentation);
             WriteTypeParameters(builder, member.TypeParameters, documentation);
+            if (member.Kind is ApiMemberKind.Method or ApiMemberKind.Operator)
+            {
+                WriteReturns(builder, member, routes, documentation);
+            }
+
             WriteExceptions(builder, member.Exceptions, routes, documentation);
         }
     }
@@ -351,24 +351,21 @@ internal sealed class MarkdownRenderer
         var description = documentation.Render(member.Documentation.Returns);
         var hasReturnType = member.Type is not null &&
             !string.Equals(member.Type.DocumentationId, "T:System.Void", StringComparison.Ordinal);
-        if (!hasReturnType && string.IsNullOrWhiteSpace(description))
+        if (!hasReturnType)
         {
             return;
         }
 
         EnsureBlankLine(builder);
-        builder.Append("**Returns:**");
-        if (hasReturnType)
-        {
-            builder.Append(' ').Append(RenderReference(member.Type!, routes));
-        }
+        builder.AppendLine("**Returns**").AppendLine();
+        builder.Append("- ").Append(RenderReference(member.Type!, routes));
 
         if (!string.IsNullOrWhiteSpace(description))
         {
-            builder.Append(hasReturnType ? ": " : " ").Append(description);
+            builder.Append(": ").Append(description);
         }
 
-        builder.AppendLine().AppendLine();
+        builder.AppendLine();
     }
 
     private static void WriteEnumValues(
@@ -567,7 +564,7 @@ internal sealed class MarkdownRenderer
         if (options.Structure == StructureMode.Namespace && indexKey is not null)
         {
             EnsureBlankLine(builder);
-            builder.AppendLine("- **Type:** Namespace");
+            builder.AppendLine("- **Kind:** Namespace");
             var parent = GetParentDirectory(directory);
             if (!string.IsNullOrEmpty(parent))
             {
@@ -582,7 +579,7 @@ internal sealed class MarkdownRenderer
         if (options.Structure == StructureMode.Source)
         {
             EnsureBlankLine(builder);
-            builder.AppendLine("- **Type:** Section");
+            builder.AppendLine("- **Kind:** Section");
             if (!string.IsNullOrEmpty(directory))
             {
                 var parent = GetParentDirectory(directory);
