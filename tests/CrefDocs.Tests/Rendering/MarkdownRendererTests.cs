@@ -119,6 +119,7 @@ public sealed class MarkdownRendererTests
         var repository = Assert.Single(files, file => file.RelativePath == "services/repository-1.md").Content;
 
         Assert.Contains("# Repository&lt;T&gt;", repository, StringComparison.Ordinal);
+        Assert.DoesNotContain("IInternalRepositoryMarker", repository, StringComparison.Ordinal);
         Assert.Contains("description: \"An in-memory IRepository<T>.\"", repository, StringComparison.Ordinal);
         Assert.Contains("[`IRepository<T>`](/reference/services/irepository-1)", repository, StringComparison.Ordinal);
         Assert.Contains("<code><a href=\"/reference/models/result-1\">Result</a>&lt;T&gt;</code>", repository, StringComparison.Ordinal);

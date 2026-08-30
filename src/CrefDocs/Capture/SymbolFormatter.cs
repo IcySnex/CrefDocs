@@ -68,6 +68,16 @@ internal static class SymbolFormatter
             };
             var start = declaration.GetFirstToken().SpanStart;
             var header = declaration.SyntaxTree.GetText().ToString(new Microsoft.CodeAnalysis.Text.TextSpan(start, end - start));
+            if (declaration is BaseTypeDeclarationSyntax { BaseList: { } baseList })
+            {
+                var relativeStart = baseList.SpanStart - start;
+                var relativeEnd = baseList.Span.End - start;
+                header = string.Concat(
+                    header.AsSpan(0, relativeStart),
+                    FormatPublicBaseList(symbol),
+                    header.AsSpan(relativeEnd));
+            }
+
             header = Regex.Replace(header, @"\bpartial\s+", string.Empty, RegexOptions.CultureInvariant);
             return NormalizeDeclaration(header);
         }
@@ -113,6 +123,30 @@ internal static class SymbolFormatter
     public static string FormatReference(ITypeSymbol symbol)
     {
         return symbol.ToDisplayString(ReferenceFormat);
+    }
+
+    private static string FormatPublicBaseList(INamedTypeSymbol symbol)
+    {
+        var bases = new List<ITypeSymbol>();
+        if (symbol.BaseType is { } baseType &&
+            baseType.SpecialType is not SpecialType.System_Object and not SpecialType.System_ValueType)
+        {
+            bases.Add(baseType);
+        }
+
+        bases.AddRange(symbol.Interfaces.Where(IsPubliclyVisible));
+        return bases.Count == 0
+            ? string.Empty
+            : $": {string.Join(", ", bases.Select(FormatReference))}";
+    }
+
+    private static bool IsPubliclyVisible(INamedTypeSymbol symbol)
+    {
+        return symbol.DeclaredAccessibility is
+                Accessibility.Public or
+                Accessibility.Protected or
+                Accessibility.ProtectedOrInternal &&
+            (symbol.ContainingType is null || IsPubliclyVisible(symbol.ContainingType));
     }
 
     public static ImmutableArray<SymbolDisplayPart> FormatReferenceParts(ITypeSymbol symbol)
