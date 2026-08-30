@@ -87,11 +87,13 @@ public sealed class MarkdownRendererTests
     public async Task RenderPreservesDirectoryCasingInVisibleIndexTitles()
     {
         var files = await RenderFixtureAsync(StructureMode.Namespace);
+        var root = Assert.Single(files, file => file.RelativePath == "index.md").Content;
         var index = Assert.Single(files, file => file.RelativePath == "crefdocs/index.md").Content;
         var collections = Assert.Single(
             files,
             file => file.RelativePath == "crefdocs/fixture/collections/index.md").Content;
 
+        Assert.Contains("- **Kind:** Package\n- **Version:** 1.0.0\n- **Target Framework:** net10.0", root, StringComparison.Ordinal);
         Assert.Contains("# CrefDocs", index, StringComparison.Ordinal);
         Assert.Contains("- **Kind:** Namespace", index, StringComparison.Ordinal);
         Assert.Contains("| [CrefDocs.Fixture](/reference/crefdocs/fixture) | Public API fixtures used to verify CrefDocs. |", index, StringComparison.Ordinal);
@@ -106,7 +108,7 @@ public sealed class MarkdownRendererTests
         var services = Assert.Single(files, file => file.RelativePath == "services/index.md").Content;
 
         Assert.Contains("Public API fixtures organized by source folder.", root, StringComparison.Ordinal);
-        Assert.Contains("- **Kind:** Section", root, StringComparison.Ordinal);
+        Assert.Contains("- **Kind:** Section\n- **Version:** 1.0.0\n- **Target Framework:** net10.0", root, StringComparison.Ordinal);
         Assert.Contains("| [Services](/reference/services) | Repository service fixtures. |", root, StringComparison.Ordinal);
         Assert.Contains("description: \"Repository service fixtures.\"", services, StringComparison.Ordinal);
         Assert.Contains("- **Section:** [CrefDocs.Fixture](/reference)", services, StringComparison.Ordinal);

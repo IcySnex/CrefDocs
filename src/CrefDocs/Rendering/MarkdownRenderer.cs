@@ -567,6 +567,14 @@ internal sealed class MarkdownRenderer
         string? indexKey,
         RenderOptions options)
     {
+        if (string.IsNullOrEmpty(directory) && options.Structure is not StructureMode.Source)
+        {
+            EnsureBlankLine(builder);
+            builder.AppendLine("- **Kind:** Package");
+            WritePackageMetadata(builder, snapshot.Package);
+            return;
+        }
+
         if (options.Structure == StructureMode.Namespace && indexKey is not null)
         {
             EnsureBlankLine(builder);
@@ -586,7 +594,11 @@ internal sealed class MarkdownRenderer
         {
             EnsureBlankLine(builder);
             builder.AppendLine("- **Kind:** Section");
-            if (!string.IsNullOrEmpty(directory))
+            if (string.IsNullOrEmpty(directory))
+            {
+                WritePackageMetadata(builder, snapshot.Package);
+            }
+            else
             {
                 var parent = GetParentDirectory(directory);
                 var parentTitle = string.IsNullOrEmpty(parent)
@@ -597,6 +609,14 @@ internal sealed class MarkdownRenderer
                     .Append(CombineRoute(options.BaseRoute, parent)).AppendLine(")");
             }
         }
+    }
+
+    private static void WritePackageMetadata(
+        StringBuilder builder,
+        ApiPackage package)
+    {
+        builder.Append("- **Version:** ").AppendLine(package.Version);
+        builder.Append("- **Target Framework:** ").AppendLine(package.TargetFramework);
     }
 
     private static ApiType? FindRepresentativeType(
