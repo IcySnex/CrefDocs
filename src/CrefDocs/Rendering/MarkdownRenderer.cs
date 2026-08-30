@@ -62,7 +62,7 @@ internal sealed class MarkdownRenderer
         }
 
         builder.AppendLine().AppendLine("```csharp").AppendLine(type.Declaration).AppendLine("```");
-        WriteTypeParameters(builder, type.TypeParameters, documentation);
+        WriteTypeParameters(builder, type.TypeParameters, routes, documentation);
 
         var groups = type.Members.GroupBy(member => member.Kind).ToDictionary(group => group.Key, group => group.ToArray());
         WriteConstructors(builder, type, groups.GetValueOrDefault(ApiMemberKind.Constructor), routes, documentation);
@@ -210,7 +210,7 @@ internal sealed class MarkdownRenderer
             EnsureBlankLine(builder);
             builder.AppendLine("```csharp").AppendLine(FormatMemberDeclaration(member.Declaration)).AppendLine("```");
             WriteParameters(builder, member.Parameters, routes, documentation);
-            WriteTypeParameters(builder, member.TypeParameters, documentation);
+            WriteTypeParameters(builder, member.TypeParameters, routes, documentation);
             if (member.Kind is ApiMemberKind.Method or ApiMemberKind.Operator)
             {
                 WriteReturns(builder, member, routes, documentation);
@@ -262,7 +262,7 @@ internal sealed class MarkdownRenderer
                 .AppendLine(FormatMemberDeclaration(constructor.Declaration))
                 .AppendLine("```");
             WriteParameters(builder, constructor.Parameters, routes, documentation);
-            WriteTypeParameters(builder, constructor.TypeParameters, documentation);
+            WriteTypeParameters(builder, constructor.TypeParameters, routes, documentation);
             WriteExceptions(builder, constructor.Exceptions, routes, documentation);
         }
     }
@@ -293,6 +293,7 @@ internal sealed class MarkdownRenderer
     private static void WriteTypeParameters(
         StringBuilder builder,
         IReadOnlyList<ApiTypeParameter> parameters,
+        RouteMap routes,
         DocumentationMarkdown documentation)
     {
         if (parameters.Count == 0)
@@ -306,9 +307,14 @@ internal sealed class MarkdownRenderer
         foreach (var parameter in parameters)
         {
             builder.Append("| ");
-            if (!string.IsNullOrWhiteSpace(parameter.Constraints))
+            if (parameter.TypeConstraints.Count > 0)
             {
-                builder.Append("*(").Append(parameter.Constraints).Append(")* ");
+                builder.Append(string.Join(", ", parameter.TypeConstraints.Select(constraint =>
+                    RenderReference(constraint, routes)))).Append(' ');
+            }
+            else if (!string.IsNullOrWhiteSpace(parameter.KeywordConstraints))
+            {
+                builder.Append("*(").Append(parameter.KeywordConstraints).Append(")* ");
             }
 
             builder.Append('`').Append(parameter.Name).Append("` | ")

@@ -58,9 +58,9 @@ public sealed class MarkdownRendererTests
     }
 
     [Theory]
-    [InlineData((int)StructureMode.Flat, "repository.md")]
-    [InlineData((int)StructureMode.Source, "services/repository.md")]
-    [InlineData((int)StructureMode.Namespace, "crefdocs/fixture/services/repository.md")]
+    [InlineData((int)StructureMode.Flat, "repository-1.md")]
+    [InlineData((int)StructureMode.Source, "services/repository-1.md")]
+    [InlineData((int)StructureMode.Namespace, "crefdocs/fixture/services/repository-1.md")]
     public async Task RenderUsesSelectedStructure(int structureValue, string expectedPath)
     {
         var structure = (StructureMode)structureValue;
@@ -74,8 +74,13 @@ public sealed class MarkdownRendererTests
     {
         var files = await RenderFixtureAsync(StructureMode.Source);
 
-        Assert.Contains(files, file => file.RelativePath == "collections/collection.md");
-        Assert.Contains(files, file => file.RelativePath == "collections/collection-2.md");
+        Assert.Contains(files, file => file.RelativePath == "collections/collection-1.md");
+        var grouped = Assert.Single(files, file => file.RelativePath == "collections/collection-2.md").Content;
+        Assert.Contains(
+            "| <code><a href=\"/reference/services/irepository-1\">IRepository</a>&lt;TItem&gt;</code> `TGroup` |",
+            grouped,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("*(new())* `TGroup`", grouped, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -111,12 +116,12 @@ public sealed class MarkdownRendererTests
     public async Task RenderProducesLinkedMarkdownForTypesAndMembers()
     {
         var files = await RenderFixtureAsync(StructureMode.Source);
-        var repository = Assert.Single(files, file => file.RelativePath == "services/repository.md").Content;
+        var repository = Assert.Single(files, file => file.RelativePath == "services/repository-1.md").Content;
 
         Assert.Contains("# Repository&lt;T&gt;", repository, StringComparison.Ordinal);
         Assert.Contains("description: \"An in-memory IRepository<T>.\"", repository, StringComparison.Ordinal);
-        Assert.Contains("[`IRepository<T>`](/reference/services/irepository)", repository, StringComparison.Ordinal);
-        Assert.Contains("<code><a href=\"/reference/models/result\">Result</a>&lt;T&gt;</code>", repository, StringComparison.Ordinal);
+        Assert.Contains("[`IRepository<T>`](/reference/services/irepository-1)", repository, StringComparison.Ordinal);
+        Assert.Contains("<code><a href=\"/reference/models/result-1\">Result</a>&lt;T&gt;</code>", repository, StringComparison.Ordinal);
         Assert.Contains("<code><a href=\"https://learn.microsoft.com/dotnet/api/system.string\">string</a></code>", repository, StringComparison.Ordinal);
         Assert.Contains("Reads the value identified by `id`.", repository, StringComparison.Ordinal);
         Assert.Contains("> Repository instances keep their values in memory.", repository, StringComparison.Ordinal);
@@ -126,10 +131,10 @@ public sealed class MarkdownRendererTests
         Assert.DoesNotContain("- **Type:** [`", repository, StringComparison.Ordinal);
         Assert.Contains("**Type:** <code><a href=\"https://learn.microsoft.com/dotnet/api/system.string\">string</a>?</code>", repository, StringComparison.Ordinal);
         Assert.Contains("public Result<T> Get(\n  string id)", repository, StringComparison.Ordinal);
-        var returns = "**Returns**\n\n- <code><a href=\"/reference/models/result\">Result</a>&lt;T&gt;</code>: The matching value.";
+        var returns = "**Returns**\n\n- <code><a href=\"/reference/models/result-1\">Result</a>&lt;T&gt;</code>: The matching value.";
         Assert.Contains(returns, repository, StringComparison.Ordinal);
         Assert.True(repository.IndexOf(returns, StringComparison.Ordinal) > repository.IndexOf("public Result<T> Get(", StringComparison.Ordinal));
-        Assert.Contains("**Returns**\n\n- <code><a href=\"https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1\">Task</a>&lt;<a href=\"/reference/models/result\">Result</a>&lt;T&gt;&gt;</code>: The matching value once the operation completes.", repository, StringComparison.Ordinal);
+        Assert.Contains("**Returns**\n\n- <code><a href=\"https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1\">Task</a>&lt;<a href=\"/reference/models/result-1\">Result</a>&lt;T&gt;&gt;</code>: The matching value once the operation completes.", repository, StringComparison.Ordinal);
         Assert.Contains("- <code><a href=\"https://learn.microsoft.com/dotnet/api/system.collections.generic.keynotfoundexception\">KeyNotFoundException</a></code>: No value has the supplied identifier.", repository, StringComparison.Ordinal);
         Assert.Contains("| *(class)* `T` | The type of value stored by the repository. |", repository, StringComparison.Ordinal);
         Assert.Contains("## Events", repository, StringComparison.Ordinal);
@@ -140,11 +145,11 @@ public sealed class MarkdownRendererTests
     public async Task RenderDocumentsPrimaryConstructorsWithoutRepeatingTheTypeHeading()
     {
         var files = await RenderFixtureAsync(StructureMode.Source);
-        var result = Assert.Single(files, file => file.RelativePath == "models/result.md").Content;
+        var result = Assert.Single(files, file => file.RelativePath == "models/result-1.md").Content;
 
         Assert.Contains("# Result&lt;T&gt;", result, StringComparison.Ordinal);
         Assert.Contains("## Constructors", result, StringComparison.Ordinal);
-        Assert.Contains("Initializes a new instance of the <code><a href=\"/reference/models/result\">Result&lt;T&gt;</a></code> struct.", result, StringComparison.Ordinal);
+        Assert.Contains("Initializes a new instance of the <code><a href=\"/reference/models/result-1\">Result&lt;T&gt;</a></code> struct.", result, StringComparison.Ordinal);
         Assert.DoesNotContain("### Result", result, StringComparison.Ordinal);
     }
 

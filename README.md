@@ -49,7 +49,7 @@ The output structure is selected when rendering, so it is not baked into the rel
 - `source` mirrors folders below `--source-root`.
 - `flat` places every type directly beneath the reference root.
 
-CrefDocs creates one page per public type and directory index pages. Internal types link to their generated pages; framework types link to Microsoft Learn. Every component of a constructed generic type links independently. A generated-file manifest lets subsequent runs remove stale pages without deleting handwritten files in the same directory.
+CrefDocs creates one page per public type and directory index pages. Generic type routes include their arity, such as `style-1` or `dictionary-2`. Internal types link to their generated pages; framework types link to Microsoft Learn. Every component of a constructed generic type links independently. A generated-file manifest lets subsequent runs remove stale pages without deleting handwritten files in the same directory.
 
 ## Index descriptions
 

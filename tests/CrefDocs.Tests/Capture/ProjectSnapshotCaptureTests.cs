@@ -14,7 +14,11 @@ public sealed class ProjectSnapshotCaptureTests
         Assert.Equal(ApiTypeKind.Class, repository.Kind);
         Assert.Equal("Services/Repository.cs", repository.SourcePath);
         Assert.Equal("An in-memory <see cref=\"T:CrefDocs.Fixture.Services.IRepository`1\" />.", repository.Documentation.Summary);
-        Assert.Equal("class", Assert.Single(repository.TypeParameters).Constraints);
+        var typeParameter = Assert.Single(repository.TypeParameters);
+        Assert.Equal("class", typeParameter.KeywordConstraints);
+        Assert.Empty(typeParameter.TypeConstraints);
+        Assert.DoesNotContain(repository.Interfaces, @interface =>
+            @interface.DisplayName == "IInternalRepositoryMarker");
         Assert.Contains(
             snapshot.IndexMetadata.Namespaces,
             entry => entry.Key == "CrefDocs.Fixture.Services" && entry.Description == "Repository service fixtures.");
@@ -35,6 +39,11 @@ public sealed class ProjectSnapshotCaptureTests
             component => Assert.Equal("T:System.Threading.Tasks.Task`1", component.DocumentationId),
             component => Assert.Equal("T:CrefDocs.Fixture.Models.Result`1", component.DocumentationId),
             component => Assert.Null(component.DocumentationId));
+
+        var collection = Assert.Single(snapshot.Types, type => type.Id == "T:CrefDocs.Fixture.Collections.Collection`2");
+        var groupParameter = Assert.Single(collection.TypeParameters, parameter => parameter.Name == "TGroup");
+        Assert.Equal("new()", groupParameter.KeywordConstraints);
+        Assert.Equal("T:CrefDocs.Fixture.Services.IRepository`1", Assert.Single(groupParameter.TypeConstraints).DocumentationId);
     }
 
     [Fact]

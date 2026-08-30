@@ -174,6 +174,7 @@ internal sealed class ProjectSnapshotCapture
             symbol.ContainingType?.GetDocumentationCommentId(),
             GetBaseType(symbol),
             symbol.AllInterfaces
+                .Where(IsPublicApiType)
                 .OrderBy(@interface => @interface.GetDocumentationCommentId(), StringComparer.Ordinal)
                 .Select(CreateReference)
                 .ToArray(),
@@ -236,7 +237,8 @@ internal sealed class ProjectSnapshotCapture
     {
         return parameters.Select(parameter => new ApiTypeParameter(
             parameter.Name,
-            SymbolFormatter.FormatConstraints(parameter),
+            SymbolFormatter.FormatKeywordConstraints(parameter),
+            parameter.ConstraintTypes.Select(CreateReference).ToArray(),
             documentation.TypeParameters.GetValueOrDefault(parameter.Name))).ToArray();
     }
 

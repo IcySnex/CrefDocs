@@ -18,8 +18,7 @@ internal sealed class RouteMap
         var candidates = snapshot.Types.Select(type => new RouteCandidate(
             type,
             GetDirectory(type, options.Structure),
-            Slug.Create(GetSimpleTypeName(type.Name)),
-            GetGenericArity(type.Name))).ToArray();
+            GetRouteSlug(type.Name))).ToArray();
         var routes = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var group in candidates.GroupBy(
@@ -27,18 +26,13 @@ internal sealed class RouteMap
             StringComparer.OrdinalIgnoreCase))
         {
             var ordered = group
-                .OrderBy(candidate => candidate.GenericArity)
-                .ThenBy(candidate => candidate.Type.Id, StringComparer.Ordinal)
+                .OrderBy(candidate => candidate.Type.Id, StringComparer.Ordinal)
                 .ToArray();
 
             for (var index = 0; index < ordered.Length; index++)
             {
                 var candidate = ordered[index];
-                var suffix = index == 0
-                    ? string.Empty
-                    : candidate.GenericArity > 0
-                        ? $"-{candidate.GenericArity}"
-                        : $"-{index + 1}";
+                var suffix = index == 0 ? string.Empty : $"-{index + 1}";
                 var relative = Join(candidate.Directory, candidate.BaseSlug + suffix);
                 routes.Add(candidate.Type.Id, CombineRoute(options.BaseRoute, relative));
             }
@@ -132,6 +126,13 @@ internal sealed class RouteMap
         return generic < 0 ? name : name[..generic];
     }
 
+    private static string GetRouteSlug(string name)
+    {
+        var baseSlug = Slug.Create(GetSimpleTypeName(name));
+        var arity = GetGenericArity(name);
+        return arity == 0 ? baseSlug : $"{baseSlug}-{arity}";
+    }
+
     private static int GetGenericArity(string name)
     {
         var open = name.IndexOf('<');
@@ -155,5 +156,5 @@ internal sealed class RouteMap
         return string.IsNullOrEmpty(relative) ? root : $"{root}/{relative}";
     }
 
-    private sealed record RouteCandidate(ApiType Type, string Directory, string BaseSlug, int GenericArity);
+    private sealed record RouteCandidate(ApiType Type, string Directory, string BaseSlug);
 }

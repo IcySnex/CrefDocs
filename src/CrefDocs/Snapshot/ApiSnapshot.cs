@@ -88,7 +88,8 @@ internal sealed record ApiReferenceComponent(
 
 internal sealed record ApiTypeParameter(
     string Name,
-    string? Constraints,
+    string? KeywordConstraints,
+    IReadOnlyList<ApiReference> TypeConstraints,
     string? Description);
 
 internal sealed record ApiParameter(

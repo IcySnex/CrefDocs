@@ -120,7 +120,7 @@ internal static class SymbolFormatter
         return symbol.ToDisplayParts(ReferenceFormat);
     }
 
-    public static string? FormatConstraints(ITypeParameterSymbol parameter)
+    public static string? FormatKeywordConstraints(ITypeParameterSymbol parameter)
     {
         var constraints = new List<string>();
 
@@ -142,8 +142,6 @@ internal static class SymbolFormatter
         {
             constraints.Add("notnull");
         }
-
-        constraints.AddRange(parameter.ConstraintTypes.Select(FormatReference));
 
         if (parameter.HasConstructorConstraint)
         {

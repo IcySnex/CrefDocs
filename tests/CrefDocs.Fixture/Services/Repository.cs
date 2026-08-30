@@ -5,7 +5,7 @@ namespace CrefDocs.Fixture.Services;
 /// <summary>An in-memory <see cref="IRepository{T}"/>.</summary>
 /// <remarks>Repository instances keep their values in memory.</remarks>
 /// <typeparam name="T">The type of value stored by the repository.</typeparam>
-public sealed partial class Repository<T> : IRepository<T>
+public sealed partial class Repository<T> : IRepository<T>, IInternalRepositoryMarker
     where T : class
 {
     /// <inheritdoc/>
@@ -23,3 +23,5 @@ public sealed partial class Repository<T> : IRepository<T>
 
     private void OnRead(T value) => Read?.Invoke(this, value);
 }
+
+internal interface IInternalRepositoryMarker;
