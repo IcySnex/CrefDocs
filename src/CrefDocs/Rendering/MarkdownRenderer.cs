@@ -42,9 +42,14 @@ internal sealed class MarkdownRenderer
         RenderOptions options)
     {
         var builder = new StringBuilder();
-        WriteFrontmatter(builder, type.Name, documentation.RenderPlainText(type.Documentation.Summary));
-        builder.Append("# ").AppendLine(EscapeMarkdownText(type.Name)).AppendLine();
-        WriteIfPresent(builder, documentation.Render(type.Documentation.Summary));
+        var description = documentation.Render(type.Documentation.Summary);
+        WriteFrontmatter(
+            builder,
+            type.Name,
+            documentation.RenderPlainText(type.Documentation.Summary),
+            description,
+            options.PageHeader);
+        WritePageHeader(builder, EscapeMarkdownText(type.Name), description, options.PageHeader);
         WriteRemarks(builder, documentation.Render(type.Documentation.Remarks));
         builder.Append("- **Kind:** ").AppendLine(GetTypeLabel(type.Kind));
         var namespaceName = string.IsNullOrEmpty(type.Namespace) ? "Global" : type.Namespace;
@@ -115,18 +120,13 @@ internal sealed class MarkdownRenderer
                     ? snapshot.Package.Id
                     : GetDirectoryDisplayName(snapshot, directory, options.Structure);
             var description = GetIndexDescription(snapshot, indexKey, options.Structure);
+            var frontmatterDescription = description ?? $"API reference for {title}.";
+            var markdownDescription = description ?? (string.IsNullOrEmpty(directory)
+                ? $"API reference for {snapshot.Package.Id} {snapshot.Package.Version}."
+                : null);
             var builder = new StringBuilder();
-            WriteFrontmatter(builder, title, description ?? $"API reference for {title}.");
-            builder.Append("# ").AppendLine(title).AppendLine();
-            if (description is not null)
-            {
-                WriteIfPresent(builder, description);
-            }
-            else if (string.IsNullOrEmpty(directory))
-            {
-                builder.Append("API reference for ").Append(snapshot.Package.Id).Append(' ')
-                    .Append(snapshot.Package.Version).AppendLine(".").AppendLine();
-            }
+            WriteFrontmatter(builder, title, frontmatterDescription, markdownDescription, options.PageHeader);
+            WritePageHeader(builder, title, markdownDescription, options.PageHeader);
 
             WriteIndexIdentity(builder, snapshot, directory, indexKey, options);
 
@@ -665,13 +665,39 @@ internal sealed class MarkdownRenderer
         _ => "Type",
     };
 
-    private static void WriteFrontmatter(StringBuilder builder, string title, string description)
+    private static void WriteFrontmatter(
+        StringBuilder builder,
+        string title,
+        string description,
+        string? descriptionMarkdown,
+        PageHeaderMode pageHeader)
     {
         builder.AppendLine("---")
             .Append("title: ").AppendLine(JsonSerializer.Serialize(title, FrontmatterJsonOptions))
-            .Append("description: ").AppendLine(JsonSerializer.Serialize(description, FrontmatterJsonOptions))
-            .AppendLine("---")
-            .AppendLine();
+            .Append("description: ").AppendLine(JsonSerializer.Serialize(description, FrontmatterJsonOptions));
+        if (pageHeader is PageHeaderMode.Frontmatter)
+        {
+            builder.AppendLine("crefdocs: true")
+                .Append("descriptionMarkdown: ")
+                .AppendLine(JsonSerializer.Serialize(descriptionMarkdown ?? description, FrontmatterJsonOptions));
+        }
+
+        builder.AppendLine("---").AppendLine();
+    }
+
+    private static void WritePageHeader(
+        StringBuilder builder,
+        string title,
+        string? description,
+        PageHeaderMode pageHeader)
+    {
+        if (pageHeader is PageHeaderMode.Frontmatter)
+        {
+            return;
+        }
+
+        builder.Append("# ").AppendLine(title).AppendLine();
+        WriteIfPresent(builder, description);
     }
 
     private static void WriteIfPresent(StringBuilder builder, string? value, string? prefix = null)

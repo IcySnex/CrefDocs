@@ -4,7 +4,8 @@ internal sealed record RenderOptions(
     string OutputPath,
     string BaseRoute,
     StructureMode Structure,
-    bool GenerateRootIndex = true);
+    bool GenerateRootIndex = true,
+    PageHeaderMode PageHeader = PageHeaderMode.Markdown);
 
 internal enum StructureMode
 {
@@ -13,5 +14,10 @@ internal enum StructureMode
     Namespace,
 }
 
-internal sealed record RenderedFile(string RelativePath, string Content);
+internal enum PageHeaderMode
+{
+    Markdown,
+    Frontmatter,
+}
 
+internal sealed record RenderedFile(string RelativePath, string Content);

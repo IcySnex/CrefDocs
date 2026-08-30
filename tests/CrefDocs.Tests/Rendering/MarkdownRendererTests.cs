@@ -145,6 +145,23 @@ public sealed class MarkdownRendererTests
     }
 
     [Fact]
+    public async Task FrontmatterPageHeadersKeepRichDescriptionsOutOfTheMarkdownBody()
+    {
+        var files = await RenderFixtureAsync(StructureMode.Source, PageHeaderMode.Frontmatter);
+        var repository = Assert.Single(files, file => file.RelativePath == "services/repository-1.md").Content;
+        var root = Assert.Single(files, file => file.RelativePath == "index.md").Content;
+
+        Assert.Contains("crefdocs: true", repository, StringComparison.Ordinal);
+        Assert.Contains(
+            "descriptionMarkdown: \"An in-memory [`IRepository<T>`](/reference/services/irepository-1).\"",
+            repository,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("\n# Repository", repository, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n# CrefDocs.Fixture", root, StringComparison.Ordinal);
+        Assert.Contains("- **Kind:** Package", root, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RenderDocumentsPrimaryConstructorsWithoutRepeatingTheTypeHeading()
     {
         var files = await RenderFixtureAsync(StructureMode.Source);
@@ -179,7 +196,9 @@ public sealed class MarkdownRendererTests
         }
     }
 
-    private static async Task<IReadOnlyList<RenderedFile>> RenderFixtureAsync(StructureMode structure)
+    private static async Task<IReadOnlyList<RenderedFile>> RenderFixtureAsync(
+        StructureMode structure,
+        PageHeaderMode pageHeader = PageHeaderMode.Markdown)
     {
         var repositoryRoot = FindRepositoryRoot();
         var fixtureRoot = Path.Combine(repositoryRoot, "tests/CrefDocs.Fixture");
@@ -193,7 +212,7 @@ public sealed class MarkdownRendererTests
 
         return new MarkdownRenderer().Render(
             snapshot,
-            new RenderOptions("unused", "/reference", structure));
+            new RenderOptions("unused", "/reference", structure, PageHeader: pageHeader));
     }
 
     private static string FindRepositoryRoot()

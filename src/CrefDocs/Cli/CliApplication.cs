@@ -63,7 +63,7 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
 
     private async Task RenderAsync(CliArguments args, CancellationToken cancellationToken)
     {
-        args.EnsureOnly("snapshot", "output", "structure", "base-route", "no-root-index");
+        args.EnsureOnly("snapshot", "output", "structure", "base-route", "page-header", "no-root-index");
         var snapshot = await SnapshotSerializer.ReadAsync(args.Required("snapshot"), cancellationToken);
         await RenderSnapshotAsync(snapshot, args, cancellationToken);
     }
@@ -72,7 +72,7 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
     {
         args.EnsureOnly(
             "project", "framework", "package", "version", "source-root", "configuration",
-            "metadata", "output", "snapshot-output", "structure", "base-route", "no-root-index");
+            "metadata", "output", "snapshot-output", "structure", "base-route", "page-header", "no-root-index");
         var snapshot = await CaptureProjectAsync(args, cancellationToken);
         var snapshotOutput = args.Optional("snapshot-output");
         if (snapshotOutput is not null)
@@ -110,7 +110,8 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
             outputPath,
             args.Optional("base-route", "/reference"),
             structure,
-            !args.Flag("no-root-index"));
+            !args.Flag("no-root-index"),
+            ParsePageHeader(args.Optional("page-header", "markdown")));
         var files = new MarkdownRenderer().Render(snapshot, options);
         await RenderedFileWriter.WriteAsync(outputPath, files, cancellationToken);
         await output.WriteLineAsync($"Rendered {files.Count} Markdown files to {Path.GetFullPath(outputPath)}.");
@@ -124,6 +125,16 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
             "source" => StructureMode.Source,
             "namespace" => StructureMode.Namespace,
             _ => throw new CliException("Option '--structure' must be flat, source, or namespace."),
+        };
+    }
+
+    private static PageHeaderMode ParsePageHeader(string value)
+    {
+        return value.ToLowerInvariant() switch
+        {
+            "markdown" => PageHeaderMode.Markdown,
+            "frontmatter" => PageHeaderMode.Frontmatter,
+            _ => throw new CliException("Option '--page-header' must be markdown or frontmatter."),
         };
     }
 
@@ -156,6 +167,7 @@ internal sealed class CliApplication(TextWriter output, TextWriter error)
           --output <directory>    Markdown output directory.
           --structure <mode>      namespace, source, or flat. Defaults to namespace.
           --base-route <route>    Documentation route root. Defaults to /reference.
+          --page-header <mode>    markdown or frontmatter. Defaults to markdown.
           --no-root-index         Leave the root index page to the documentation project.
 
         Generate additionally accepts --snapshot-output <path>.

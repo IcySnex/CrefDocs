@@ -15,6 +15,7 @@ public sealed class CliApplicationTests
         Assert.Equal(0, exitCode);
         Assert.Contains("crefdocs capture", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("namespace, source, or flat", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--page-header", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--metadata", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
