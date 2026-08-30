@@ -153,7 +153,7 @@ public sealed class MarkdownRendererTests
 
         Assert.Contains("docs: true", repository, StringComparison.Ordinal);
         Assert.Contains(
-            "summary: \"An in-memory [`IRepository<T>`](/reference/services/irepository-1).\"\ndocs: true",
+            "markdown: \"An in-memory [`IRepository<T>`](/reference/services/irepository-1).\"\ndocs: true",
             repository,
             StringComparison.Ordinal);
         Assert.DoesNotContain("\n# Repository", repository, StringComparison.Ordinal);

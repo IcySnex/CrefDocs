@@ -51,7 +51,7 @@ The output structure is selected when rendering, so it is not baked into the rel
 
 CrefDocs creates one page per public type and directory index pages. Generic type routes include their arity, such as `style-1` or `dictionary-2`. Internal types link to their generated pages; framework types link to Microsoft Learn. Every component of a constructed generic type links independently. A generated-file manifest lets subsequent runs remove stale pages without deleting handwritten files in the same directory.
 
-By default, `--page-header markdown` renders the page title and linked description in the Markdown body. Documentation themes that provide their own page header can use `--page-header frontmatter` instead. That mode adds a linked `summary` and `docs: true` to the frontmatter while retaining the plain `description` used by navigation and SEO metadata.
+By default, `--page-header markdown` renders the page title and linked description in the Markdown body. Documentation themes that provide their own page header can use `--page-header frontmatter` instead. That mode adds linked `markdown` and `docs: true` fields to the frontmatter while retaining the plain `description` used by navigation and SEO metadata.
 
 ## Index descriptions
 

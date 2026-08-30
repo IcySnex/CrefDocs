@@ -677,7 +677,7 @@ internal sealed class MarkdownRenderer
             .Append("description: ").AppendLine(JsonSerializer.Serialize(description, FrontmatterJsonOptions));
         if (pageHeader is PageHeaderMode.Frontmatter)
         {
-            builder.Append("summary: ")
+            builder.Append("markdown: ")
                 .AppendLine(JsonSerializer.Serialize(descriptionMarkdown ?? description, FrontmatterJsonOptions))
                 .AppendLine("docs: true");
         }
