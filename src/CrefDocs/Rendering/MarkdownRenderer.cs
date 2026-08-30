@@ -42,15 +42,15 @@ internal sealed class MarkdownRenderer
         RenderOptions options)
     {
         var builder = new StringBuilder();
-        var description = documentation.Render(type.Documentation.Summary);
+        var description = documentation.Render(type.Documentation.Summary, type.Id);
         WriteFrontmatter(
             builder,
             type.Name,
-            documentation.RenderPlainText(type.Documentation.Summary),
+            documentation.RenderPlainText(type.Documentation.Summary, type.Id),
             description,
             options.PageHeader);
         WritePageHeader(builder, EscapeMarkdownText(type.Name), description, options.PageHeader);
-        WriteRemarks(builder, documentation.Render(type.Documentation.Remarks));
+        WriteRemarks(builder, documentation.Render(type.Documentation.Remarks, type.Id));
         builder.Append("- **Kind:** ").AppendLine(GetTypeLabel(type.Kind));
         var namespaceName = string.IsNullOrEmpty(type.Namespace) ? "Global" : type.Namespace;
         builder.Append("- **Namespace:** [").Append(namespaceName).Append("](")
@@ -67,16 +67,16 @@ internal sealed class MarkdownRenderer
         }
 
         builder.AppendLine().AppendLine("```csharp").AppendLine(type.Declaration).AppendLine("```");
-        WriteTypeParameters(builder, type.TypeParameters, routes, documentation);
+        WriteTypeParameters(builder, type.TypeParameters, routes, documentation, type.Id);
 
         var groups = type.Members.GroupBy(member => member.Kind).ToDictionary(group => group.Key, group => group.ToArray());
         WriteConstructors(builder, type, groups.GetValueOrDefault(ApiMemberKind.Constructor), routes, documentation);
-        WriteMembers(builder, "Properties", Combine(groups, ApiMemberKind.Property, ApiMemberKind.Indexer), routes, documentation);
-        WriteMembers(builder, "Methods", groups.GetValueOrDefault(ApiMemberKind.Method), routes, documentation);
-        WriteMembers(builder, "Events", groups.GetValueOrDefault(ApiMemberKind.Event), routes, documentation);
-        WriteMembers(builder, "Fields", groups.GetValueOrDefault(ApiMemberKind.Field), routes, documentation);
-        WriteMembers(builder, "Operators", groups.GetValueOrDefault(ApiMemberKind.Operator), routes, documentation);
-        WriteEnumValues(builder, groups.GetValueOrDefault(ApiMemberKind.EnumValue), documentation);
+        WriteMembers(builder, "Properties", Combine(groups, ApiMemberKind.Property, ApiMemberKind.Indexer), routes, documentation, type.Id);
+        WriteMembers(builder, "Methods", groups.GetValueOrDefault(ApiMemberKind.Method), routes, documentation, type.Id);
+        WriteMembers(builder, "Events", groups.GetValueOrDefault(ApiMemberKind.Event), routes, documentation, type.Id);
+        WriteMembers(builder, "Fields", groups.GetValueOrDefault(ApiMemberKind.Field), routes, documentation, type.Id);
+        WriteMembers(builder, "Operators", groups.GetValueOrDefault(ApiMemberKind.Operator), routes, documentation, type.Id);
+        WriteEnumValues(builder, groups.GetValueOrDefault(ApiMemberKind.EnumValue), documentation, type.Id);
 
         return builder.ToString().TrimEnd() + Environment.NewLine;
     }
@@ -179,7 +179,8 @@ internal sealed class MarkdownRenderer
         string heading,
         IReadOnlyList<ApiMember>? members,
         RouteMap routes,
-        DocumentationMarkdown documentation)
+        DocumentationMarkdown documentation,
+        string currentTypeId)
     {
         if (members is not { Count: > 0 })
         {
@@ -199,8 +200,8 @@ internal sealed class MarkdownRenderer
             EnsureBlankLine(builder);
             builder.Append("<a id=\"").Append(anchor).AppendLine("\"></a>");
             builder.Append("### ").AppendLine(EscapeMarkdownText(member.Name)).AppendLine();
-            WriteIfPresent(builder, documentation.Render(member.Documentation.Summary));
-            WriteRemarks(builder, documentation.Render(member.Documentation.Remarks));
+            WriteIfPresent(builder, documentation.Render(member.Documentation.Summary, currentTypeId));
+            WriteRemarks(builder, documentation.Render(member.Documentation.Remarks, currentTypeId));
             if (member.Type is not null && member.Kind is not ApiMemberKind.Method and not ApiMemberKind.Operator)
             {
                 EnsureBlankLine(builder);
@@ -209,14 +210,14 @@ internal sealed class MarkdownRenderer
 
             EnsureBlankLine(builder);
             builder.AppendLine("```csharp").AppendLine(FormatMemberDeclaration(member.Declaration)).AppendLine("```");
-            WriteParameters(builder, member.Parameters, routes, documentation);
-            WriteTypeParameters(builder, member.TypeParameters, routes, documentation);
+            WriteParameters(builder, member.Parameters, routes, documentation, currentTypeId);
+            WriteTypeParameters(builder, member.TypeParameters, routes, documentation, currentTypeId);
             if (member.Kind is ApiMemberKind.Method or ApiMemberKind.Operator)
             {
-                WriteReturns(builder, member, routes, documentation);
+                WriteReturns(builder, member, routes, documentation, currentTypeId);
             }
 
-            WriteExceptions(builder, member.Exceptions, routes, documentation);
+            WriteExceptions(builder, member.Exceptions, routes, documentation, currentTypeId);
         }
     }
 
@@ -253,17 +254,17 @@ internal sealed class MarkdownRenderer
             }
             else
             {
-                WriteIfPresent(builder, documentation.Render(constructor.Documentation.Summary));
-                WriteRemarks(builder, documentation.Render(constructor.Documentation.Remarks));
+                WriteIfPresent(builder, documentation.Render(constructor.Documentation.Summary, type.Id));
+                WriteRemarks(builder, documentation.Render(constructor.Documentation.Remarks, type.Id));
             }
 
             EnsureBlankLine(builder);
             builder.AppendLine("```csharp")
                 .AppendLine(FormatMemberDeclaration(constructor.Declaration))
                 .AppendLine("```");
-            WriteParameters(builder, constructor.Parameters, routes, documentation);
-            WriteTypeParameters(builder, constructor.TypeParameters, routes, documentation);
-            WriteExceptions(builder, constructor.Exceptions, routes, documentation);
+            WriteParameters(builder, constructor.Parameters, routes, documentation, type.Id);
+            WriteTypeParameters(builder, constructor.TypeParameters, routes, documentation, type.Id);
+            WriteExceptions(builder, constructor.Exceptions, routes, documentation, type.Id);
         }
     }
 
@@ -271,7 +272,8 @@ internal sealed class MarkdownRenderer
         StringBuilder builder,
         IReadOnlyList<ApiParameter> parameters,
         RouteMap routes,
-        DocumentationMarkdown documentation)
+        DocumentationMarkdown documentation,
+        string currentTypeId)
     {
         if (parameters.Count == 0)
         {
@@ -286,7 +288,7 @@ internal sealed class MarkdownRenderer
             var optional = parameter.DefaultValue is null ? string.Empty : "*(optional)* ";
             builder.Append("| ").Append(optional).Append(RenderReference(parameter.Type, routes)).Append(' ')
                 .Append('`').Append(parameter.Name).Append("` | ")
-                .Append(EscapeTable(documentation.Render(parameter.Description))).AppendLine(" |");
+                .Append(EscapeTable(documentation.Render(parameter.Description, currentTypeId))).AppendLine(" |");
         }
     }
 
@@ -294,7 +296,8 @@ internal sealed class MarkdownRenderer
         StringBuilder builder,
         IReadOnlyList<ApiTypeParameter> parameters,
         RouteMap routes,
-        DocumentationMarkdown documentation)
+        DocumentationMarkdown documentation,
+        string currentTypeId)
     {
         if (parameters.Count == 0)
         {
@@ -318,7 +321,7 @@ internal sealed class MarkdownRenderer
             }
 
             builder.Append('`').Append(parameter.Name).Append("` | ")
-                .Append(EscapeTable(documentation.Render(parameter.Description))).AppendLine(" |");
+                .Append(EscapeTable(documentation.Render(parameter.Description, currentTypeId))).AppendLine(" |");
         }
     }
 
@@ -326,7 +329,8 @@ internal sealed class MarkdownRenderer
         StringBuilder builder,
         IReadOnlyList<ApiException> exceptions,
         RouteMap routes,
-        DocumentationMarkdown documentation)
+        DocumentationMarkdown documentation,
+        string currentTypeId)
     {
         if (exceptions.Count == 0)
         {
@@ -338,7 +342,7 @@ internal sealed class MarkdownRenderer
         foreach (var exception in exceptions)
         {
             builder.Append("- ").Append(RenderReference(exception.Type, routes));
-            var description = documentation.Render(exception.Description);
+            var description = documentation.Render(exception.Description, currentTypeId);
             if (!string.IsNullOrEmpty(description))
             {
                 builder.Append(": ").Append(description);
@@ -352,9 +356,10 @@ internal sealed class MarkdownRenderer
         StringBuilder builder,
         ApiMember member,
         RouteMap routes,
-        DocumentationMarkdown documentation)
+        DocumentationMarkdown documentation,
+        string currentTypeId)
     {
-        var description = documentation.Render(member.Documentation.Returns);
+        var description = documentation.Render(member.Documentation.Returns, currentTypeId);
         var hasReturnType = member.Type is not null &&
             !string.Equals(member.Type.DocumentationId, "T:System.Void", StringComparison.Ordinal);
         if (!hasReturnType)
@@ -377,7 +382,8 @@ internal sealed class MarkdownRenderer
     private static void WriteEnumValues(
         StringBuilder builder,
         IReadOnlyList<ApiMember>? values,
-        DocumentationMarkdown documentation)
+        DocumentationMarkdown documentation,
+        string currentTypeId)
     {
         if (values is not { Count: > 0 })
         {
@@ -391,7 +397,7 @@ internal sealed class MarkdownRenderer
         foreach (var value in values)
         {
             builder.Append("| `").Append(value.Name).Append("` | ")
-                .Append(EscapeTable(documentation.Render(value.Documentation.Summary))).AppendLine(" |");
+                .Append(EscapeTable(documentation.Render(value.Documentation.Summary, currentTypeId))).AppendLine(" |");
         }
     }
 
