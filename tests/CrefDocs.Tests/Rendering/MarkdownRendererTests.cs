@@ -151,9 +151,9 @@ public sealed class MarkdownRendererTests
         var repository = Assert.Single(files, file => file.RelativePath == "services/repository-1.md").Content;
         var root = Assert.Single(files, file => file.RelativePath == "index.md").Content;
 
-        Assert.Contains("crefdocs: true", repository, StringComparison.Ordinal);
+        Assert.Contains("docs: true", repository, StringComparison.Ordinal);
         Assert.Contains(
-            "descriptionMarkdown: \"An in-memory [`IRepository<T>`](/reference/services/irepository-1).\"",
+            "summary: \"An in-memory [`IRepository<T>`](/reference/services/irepository-1).\"\ndocs: true",
             repository,
             StringComparison.Ordinal);
         Assert.DoesNotContain("\n# Repository", repository, StringComparison.Ordinal);

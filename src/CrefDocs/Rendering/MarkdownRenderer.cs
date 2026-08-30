@@ -677,9 +677,9 @@ internal sealed class MarkdownRenderer
             .Append("description: ").AppendLine(JsonSerializer.Serialize(description, FrontmatterJsonOptions));
         if (pageHeader is PageHeaderMode.Frontmatter)
         {
-            builder.AppendLine("crefdocs: true")
-                .Append("descriptionMarkdown: ")
-                .AppendLine(JsonSerializer.Serialize(descriptionMarkdown ?? description, FrontmatterJsonOptions));
+            builder.Append("summary: ")
+                .AppendLine(JsonSerializer.Serialize(descriptionMarkdown ?? description, FrontmatterJsonOptions))
+                .AppendLine("docs: true");
         }
 
         builder.AppendLine("---").AppendLine();
