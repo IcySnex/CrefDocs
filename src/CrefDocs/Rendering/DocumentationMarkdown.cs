@@ -213,6 +213,11 @@ internal sealed class DocumentationMarkdown(RouteMap routes)
 
     private string? GetReferenceRoute(string? documentationId)
     {
+        if (routes.TryGetRoute(documentationId, out var memberRoute))
+        {
+            return memberRoute;
+        }
+
         if (routes.TryGetRoute(GetDeclaringTypeId(documentationId), out var internalRoute))
         {
             return internalRoute;

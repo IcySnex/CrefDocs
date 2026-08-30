@@ -19,7 +19,16 @@ public sealed class ToolTests
             "test",
             new ApiPackage("Fixture", "1.0.0", "Fixture", "net10.0"),
             ApiIndexMetadata.Empty,
-            [Type("T:SkeleKit.Link", "Link"), Type("T:SkeleKit.TextView", "TextView")]);
+            [
+                Type(
+                    "T:SkeleKit.Link",
+                    "Link",
+                    [Member("P:SkeleKit.Link.Command", "Command", ApiMemberKind.Property)]),
+                Type(
+                    "T:SkeleKit.TextView",
+                    "TextView",
+                    [Member("P:SkeleKit.TextView.Spans", "Spans", ApiMemberKind.Property)]),
+            ]);
         var routes = RouteMap.Create(snapshot, new RenderOptions("output", "reference", StructureMode.Flat));
         var documentation = new DocumentationMarkdown(routes);
         const string fragment = "Fires <see cref=\"P:SkeleKit.Link.Command\"/> inside <see cref=\"P:SkeleKit.TextView.Spans\"/>.";
@@ -27,11 +36,11 @@ public sealed class ToolTests
         var markdown = documentation.Render(fragment, "T:SkeleKit.Link");
         var plainText = documentation.RenderPlainText(fragment, "T:SkeleKit.Link");
 
-        Assert.Equal("Fires [`Command`](/reference/link) inside [`TextView.Spans`](/reference/textview).", markdown);
+        Assert.Equal("Fires [`Command`](/reference/link#command) inside [`TextView.Spans`](/reference/textview#spans).", markdown);
         Assert.Equal("Fires Command inside TextView.Spans.", plainText);
     }
 
-    private static ApiType Type(string id, string name) => new(
+    private static ApiType Type(string id, string name, IReadOnlyList<ApiMember> members) => new(
         id,
         name,
         "SkeleKit",
@@ -42,6 +51,17 @@ public sealed class ToolTests
         null,
         [],
         ApiDocumentation.Empty,
+        [],
+        members);
+
+    private static ApiMember Member(string id, string name, ApiMemberKind kind) => new(
+        id,
+        name,
+        kind,
+        $"public object {name} {{ get; }}",
+        null,
+        ApiDocumentation.Empty,
+        [],
         [],
         []);
 }

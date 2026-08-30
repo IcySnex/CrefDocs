@@ -145,6 +145,63 @@ public sealed class MarkdownRendererTests
     }
 
     [Fact]
+    public void RenderUsesCompactOperatorHeadings()
+    {
+        var box = new ApiReference("Box<T>", "T:Example.Box`1", []);
+        var typeParameter = new ApiReference("T", "!:T", []);
+        var snapshot = new ApiSnapshot(
+            ApiSnapshot.CurrentSchemaVersion,
+            "test",
+            new ApiPackage("Example", "1.0.0", "Example", "net10.0"),
+            ApiIndexMetadata.Empty,
+            [
+                new ApiType(
+                    "T:Example.Box`1",
+                    "Box<T>",
+                    "Example",
+                    ApiTypeKind.Struct,
+                    "public readonly struct Box<T>",
+                    "Box.cs",
+                    null,
+                    null,
+                    [],
+                    ApiDocumentation.Empty,
+                    [],
+                    [
+                        Operator(
+                            "M:Example.Box`1.op_Implicit(`0)~Example.Box{`0}",
+                            "implicit operator Box<T>",
+                            "public static implicit operator Box<T>(T value)",
+                            box,
+                            [Parameter("value", typeParameter)]),
+                        Operator(
+                            "M:Example.Box`1.op_Explicit(Example.Box{`0})~`0",
+                            "explicit operator T",
+                            "public static explicit operator T(Box<T> value)",
+                            typeParameter,
+                            [Parameter("value", box)]),
+                        Operator(
+                            "M:Example.Box`1.op_Addition(Example.Box{`0},Example.Box{`0})",
+                            "operator +",
+                            "public static Box<T> operator +(Box<T> left, Box<T> right)",
+                            box,
+                            [Parameter("left", box), Parameter("right", box)]),
+                    ]),
+            ]);
+
+        var files = new MarkdownRenderer().Render(
+            snapshot,
+            new RenderOptions("unused", "/reference", StructureMode.Flat));
+        var page = Assert.Single(files, file => file.RelativePath == "box-1.md").Content;
+
+        Assert.Contains("### Implicit Box&lt;T&gt;(T)", page, StringComparison.Ordinal);
+        Assert.Contains("### Explicit T(Box&lt;T&gt;)", page, StringComparison.Ordinal);
+        Assert.Contains("### +(Box&lt;T&gt;, Box&lt;T&gt;)", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("### implicit operator", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("### operator +", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task FrontmatterPageHeadersKeepRichDescriptionsOutOfTheMarkdownBody()
     {
         var files = await RenderFixtureAsync(StructureMode.Source, PageHeaderMode.Frontmatter);
@@ -214,6 +271,24 @@ public sealed class MarkdownRendererTests
             snapshot,
             new RenderOptions("unused", "/reference", structure, PageHeader: pageHeader));
     }
+
+    private static ApiMember Operator(
+        string id,
+        string name,
+        string declaration,
+        ApiReference type,
+        IReadOnlyList<ApiParameter> parameters) => new(
+            id,
+            name,
+            ApiMemberKind.Operator,
+            declaration,
+            type,
+            ApiDocumentation.Empty,
+            [],
+            parameters,
+            []);
+
+    private static ApiParameter Parameter(string name, ApiReference type) => new(name, type, null, null);
 
     private static string FindRepositoryRoot()
     {

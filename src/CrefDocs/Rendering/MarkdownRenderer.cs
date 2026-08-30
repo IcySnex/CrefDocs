@@ -189,17 +189,11 @@ internal sealed class MarkdownRenderer
 
         EnsureBlankLine(builder);
         builder.Append("## ").AppendLine(heading);
-        var anchors = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var member in members)
         {
-            var baseAnchor = Slug.Create(member.Name);
-            var occurrence = anchors.GetValueOrDefault(baseAnchor) + 1;
-            anchors[baseAnchor] = occurrence;
-            var anchor = occurrence == 1 ? baseAnchor : $"{baseAnchor}-{occurrence}";
-
             EnsureBlankLine(builder);
-            builder.Append("<a id=\"").Append(anchor).AppendLine("\"></a>");
-            builder.Append("### ").AppendLine(EscapeMarkdownText(member.Name)).AppendLine();
+            builder.Append("<a id=\"").Append(routes.GetMemberAnchor(member.Id)).AppendLine("\"></a>");
+            builder.Append("### ").AppendLine(EscapeMarkdownText(GetMemberHeading(member))).AppendLine();
             WriteIfPresent(builder, documentation.Render(member.Documentation.Summary, currentTypeId));
             WriteRemarks(builder, documentation.Render(member.Documentation.Remarks, currentTypeId));
             if (member.Type is not null && member.Kind is not ApiMemberKind.Method and not ApiMemberKind.Operator)
@@ -235,18 +229,10 @@ internal sealed class MarkdownRenderer
 
         EnsureBlankLine(builder);
         builder.AppendLine("## Constructors");
-        var anchor = Slug.Create(type.Name);
-        for (var index = 0; index < constructors.Count; index++)
+        foreach (var constructor in constructors)
         {
-            var constructor = constructors[index];
             EnsureBlankLine(builder);
-            builder.Append("<a id=\"").Append(anchor);
-            if (index > 0)
-            {
-                builder.Append('-').Append(index + 1);
-            }
-
-            builder.AppendLine("\"></a>");
+            builder.Append("<a id=\"").Append(routes.GetMemberAnchor(constructor.Id)).AppendLine("\"></a>");
             if (constructor.IsPrimaryConstructor)
             {
                 var reference = RenderReference(new ApiReference(type.Name, type.Id, []), routes);
@@ -428,6 +414,30 @@ internal sealed class MarkdownRenderer
 
         builder.Append(WebUtility.HtmlEncode(reference.DisplayName[offset..]));
         return builder.Append("</code>").ToString();
+    }
+
+    private static string GetMemberHeading(ApiMember member)
+    {
+        if (member.Kind != ApiMemberKind.Operator)
+        {
+            return member.Name;
+        }
+
+        var parameters = string.Join(", ", member.Parameters.Select(parameter => parameter.Type.DisplayName));
+        if (member.Name.StartsWith("implicit operator ", StringComparison.Ordinal))
+        {
+            return $"Implicit {member.Type?.DisplayName ?? member.Name["implicit operator ".Length..]}({parameters})";
+        }
+
+        if (member.Name.StartsWith("explicit operator ", StringComparison.Ordinal))
+        {
+            return $"Explicit {member.Type?.DisplayName ?? member.Name["explicit operator ".Length..]}({parameters})";
+        }
+
+        var name = member.Name.StartsWith("operator ", StringComparison.Ordinal)
+            ? member.Name["operator ".Length..]
+            : member.Name;
+        return $"{name}({parameters})";
     }
 
     private static string RenderReferenceComponent(string text, string? documentationId, RouteMap routes)

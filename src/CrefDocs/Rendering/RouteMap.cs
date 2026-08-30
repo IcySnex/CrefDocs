@@ -6,11 +6,16 @@ internal sealed class RouteMap
 {
     private readonly Dictionary<string, string> _routes;
     private readonly Dictionary<string, string> _displayNames;
+    private readonly Dictionary<string, string> _memberAnchors;
 
-    private RouteMap(Dictionary<string, string> routes, Dictionary<string, string> displayNames)
+    private RouteMap(
+        Dictionary<string, string> routes,
+        Dictionary<string, string> displayNames,
+        Dictionary<string, string> memberAnchors)
     {
         _routes = routes;
         _displayNames = displayNames;
+        _memberAnchors = memberAnchors;
     }
 
     public static RouteMap Create(ApiSnapshot snapshot, RenderOptions options)
@@ -38,9 +43,33 @@ internal sealed class RouteMap
             }
         }
 
+        var memberAnchors = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var type in snapshot.Types)
+        {
+            foreach (var group in type.Members
+                .Where(member => member.Kind != ApiMemberKind.EnumValue)
+                .GroupBy(member => member.Kind))
+            {
+                var occurrences = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (var member in group)
+                {
+                    var baseAnchor = member.Kind == ApiMemberKind.Constructor
+                        ? Slug.Create(type.Name)
+                        : Slug.Create(member.Name);
+                    var occurrence = occurrences.GetValueOrDefault(baseAnchor) + 1;
+                    occurrences[baseAnchor] = occurrence;
+                    var anchor = occurrence == 1 ? baseAnchor : $"{baseAnchor}-{occurrence}";
+
+                    memberAnchors.Add(member.Id, anchor);
+                    routes.Add(member.Id, $"{routes[type.Id]}#{anchor}");
+                }
+            }
+        }
+
         return new RouteMap(
             routes,
-            snapshot.Types.ToDictionary(type => type.Id, type => type.Name, StringComparer.Ordinal));
+            snapshot.Types.ToDictionary(type => type.Id, type => type.Name, StringComparer.Ordinal),
+            memberAnchors);
     }
 
     public string this[string documentationId] => _routes[documentationId];
@@ -68,6 +97,8 @@ internal sealed class RouteMap
         displayName = string.Empty;
         return false;
     }
+
+    public string GetMemberAnchor(string documentationId) => _memberAnchors[documentationId];
 
     public string GetRelativeFilePath(string documentationId, string baseRoute)
     {
